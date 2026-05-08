@@ -88,7 +88,34 @@
 
       <!-- CTAs -->
       <div class="flex items-center gap-3">
+        <!-- Logged-out: Sign in button -->
         <button id="nav-signin" onclick="openModal()" class="hidden sm:inline text-sm font-medium text-[#134E4A]/80 hover:text-[#0D9488] transition-smooth cursor-pointer">Sign in</button>
+
+        <!-- Logged-in: user menu -->
+        <div id="nav-user-menu" class="hidden sm:relative">
+          <button onclick="toggleUserMenu()" id="nav-user-btn"
+            class="hidden items-center gap-2 glass px-3 py-1.5 rounded-xl text-sm font-semibold text-[#134E4A] hover:shadow-md transition-smooth cursor-pointer">
+            <div id="nav-user-avatar" class="w-6 h-6 rounded-full bg-[#0D9488] flex items-center justify-center text-white text-xs font-bold">?</div>
+            <span id="nav-user-name">User</span>
+            <svg class="w-3.5 h-3.5 text-[#475569]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <!-- Dropdown -->
+          <div id="nav-dropdown" class="hidden absolute right-0 top-full mt-2 w-44 glass rounded-2xl shadow-xl overflow-hidden z-50 border border-white/40">
+            <a href="dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#134E4A] hover:bg-[#0D9488]/10 transition-smooth cursor-pointer">
+              <svg class="w-4 h-4 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              My Dashboard
+            </a>
+            <a href="admin.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#134E4A] hover:bg-[#0D9488]/10 transition-smooth cursor-pointer">
+              <svg class="w-4 h-4 text-[#475569]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Admin panel
+            </a>
+            <div class="border-t border-slate-100 mx-3"></div>
+            <button onclick="signOutFromLanding()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-smooth cursor-pointer">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out
+            </button>
+          </div>
+        </div>
         <a href="#" class="bg-[#F97316] hover:bg-[#ea6c0d] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-smooth cursor-pointer shadow-sm">
           Get started free
         </a>
@@ -529,15 +556,42 @@
 
     // ── Session state — update navbar ────────────────────────────────
     function updateNavbar(user) {
-      const navBtn = document.getElementById('nav-signin');
+      const signinBtn = document.getElementById('nav-signin');
+      const userMenu  = document.getElementById('nav-user-menu');
+      const userBtn   = document.getElementById('nav-user-btn');
+      const avatar    = document.getElementById('nav-user-avatar');
+      const nameEl    = document.getElementById('nav-user-name');
       if (user) {
-        navBtn.textContent = user.email.split('@')[0];
-        navBtn.onclick = async () => { await _supabase.auth.signOut(); updateNavbar(null); };
+        const name = user.email.split('@')[0];
+        signinBtn.classList.add('hidden');
+        userMenu.classList.remove('hidden');
+        userBtn.classList.remove('hidden');
+        userBtn.classList.add('flex');
+        avatar.textContent = name[0].toUpperCase();
+        nameEl.textContent = name;
       } else {
-        navBtn.textContent = 'Sign in';
-        navBtn.onclick = openModal;
+        signinBtn.classList.remove('hidden');
+        userMenu.classList.add('hidden');
+        userBtn.classList.add('hidden');
+        userBtn.classList.remove('flex');
       }
     }
+
+    function toggleUserMenu() {
+      document.getElementById('nav-dropdown').classList.toggle('hidden');
+    }
+
+    async function signOutFromLanding() {
+      await _supabase.auth.signOut();
+      updateNavbar(null);
+      document.getElementById('nav-dropdown').classList.add('hidden');
+    }
+
+    document.addEventListener('click', e => {
+      const menu = document.getElementById('nav-user-menu');
+      if (menu && !menu.contains(e.target))
+        document.getElementById('nav-dropdown').classList.add('hidden');
+    });
 
     // ── On load: check existing session ─────────────────────────────
     _supabase.auth.getSession().then(({ data: { session } }) => {
