@@ -707,7 +707,7 @@ function initAdmin(user) {
 
 async function signOut() {
   await sb.auth.signOut();
-  location.reload();
+  window.location.href = 'flowdesk-landing.html';
 }
 
 // ── Navigation ────────────────────────────────────────────────────────

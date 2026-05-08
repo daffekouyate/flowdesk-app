@@ -153,7 +153,7 @@
         <button onclick="openModal()" class="w-full sm:w-auto bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer shadow-md text-base">
           Start for free — no card needed
         </button>
-        <a href="#" class="w-full sm:w-auto glass hover:shadow-md text-[#134E4A] font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer text-base flex items-center justify-center gap-2">
+        <a href="#features" class="w-full sm:w-auto glass hover:shadow-md text-[#134E4A] font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer text-base flex items-center justify-center gap-2">
           <svg class="w-5 h-5 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <polygon points="10 8 16 12 10 16 10 8"/>
@@ -344,7 +344,7 @@
           <p class="text-sm font-semibold text-[#475569] mb-1">Free</p>
           <p class="text-4xl font-extrabold text-[#134E4A] mb-1">$0</p>
           <p class="text-xs text-[#475569] mb-6">Forever free, up to 3 users</p>
-          <a href="#" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
+          <a href="#" onclick="event.preventDefault(); setMode(true); openModal();" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
             Get started
           </a>
           <ul class="space-y-2 text-sm text-[#475569]">
@@ -362,7 +362,7 @@
           <p class="text-sm font-semibold text-[#0D9488] mb-1">Pro</p>
           <p class="text-4xl font-extrabold text-[#134E4A] mb-1">$12<span class="text-base font-medium text-[#475569]">/mo</span></p>
           <p class="text-xs text-[#475569] mb-6">Per user, billed annually</p>
-          <a href="#" class="block text-center bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold py-2.5 rounded-xl transition-smooth cursor-pointer text-sm mb-6 shadow-sm">
+          <a href="#" onclick="event.preventDefault(); setMode(true); openModal();" class="block text-center bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold py-2.5 rounded-xl transition-smooth cursor-pointer text-sm mb-6 shadow-sm">
             Start free trial
           </a>
           <ul class="space-y-2 text-sm text-[#475569]">
@@ -379,7 +379,7 @@
           <p class="text-sm font-semibold text-[#475569] mb-1">Enterprise</p>
           <p class="text-4xl font-extrabold text-[#134E4A] mb-1">Custom</p>
           <p class="text-xs text-[#475569] mb-6">For large teams & orgs</p>
-          <a href="#" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
+          <a href="#" onclick="event.preventDefault(); openModal();" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
             Contact sales
           </a>
           <ul class="space-y-2 text-sm text-[#475569]">
@@ -478,7 +478,7 @@
         <div class="mb-6">
           <div class="flex items-center justify-between mb-1.5">
             <label for="password" class="block text-sm font-medium text-[#134E4A]">Password</label>
-            <a href="#" class="text-xs text-[#0D9488] hover:underline cursor-pointer">Forgot password?</a>
+            <a href="#" onclick="event.preventDefault(); forgotPassword();" class="text-xs text-[#0D9488] hover:underline cursor-pointer">Forgot password?</a>
           </div>
           <div class="relative">
             <input id="password" type="password" autocomplete="current-password" placeholder="••••••••"
@@ -525,6 +525,24 @@
     // ── Modal helpers ────────────────────────────────────────────────
     function openModal()  { document.getElementById('signin-modal').classList.add('open'); }
     function closeModal() { document.getElementById('signin-modal').classList.remove('open'); }
+
+    async function forgotPassword() {
+      const email = document.getElementById('email').value.trim();
+      if (!email) {
+        document.getElementById('email-error').textContent = 'Entrez votre email pour réinitialiser le mot de passe.';
+        document.getElementById('email-error').classList.remove('hidden');
+        return;
+      }
+      const { error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/flowdesk-landing.html' });
+      const authErr = document.getElementById('auth-error');
+      if (error) {
+        authErr.textContent = error.message;
+        authErr.classList.remove('hidden');
+      } else {
+        authErr.classList.add('hidden');
+        document.getElementById('modal-body').innerHTML = '<p class="text-sm text-[#475569] text-center py-4">Email de réinitialisation envoyé ! Vérifiez votre boîte mail.</p>';
+      }
+    }
 
     // ── Mode toggle (sign in / sign up) ──────────────────────────────
     let isSignUp = false;
