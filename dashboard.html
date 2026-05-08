@@ -387,13 +387,28 @@ const sb = createClient(
   'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoiYW5vbiJ9.uDWcW4l6DFY9JxJ9cD-MfpKEu_zSNg0EkmhIxnxmxi4'
 );
 
-// ── State (localStorage per user) ────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────
 let currentUser = null;
 let tasks = [], projects = [], notes = [];
 
-function storageKey(k) { return `fd_${currentUser.id}_${k}`; }
-function save(k, v)    { localStorage.setItem(storageKey(k), JSON.stringify(v)); }
-function load(k, def)  { try { return JSON.parse(localStorage.getItem(storageKey(k))) || def; } catch { return def; } }
+// ── Supabase CRUD helpers ─────────────────────────────────────────────
+const db = {
+  async fetchTasks()    { const { data } = await sb.from('tasks').select('*').order('created_at', { ascending: false }); return data || []; },
+  async fetchProjects() { const { data } = await sb.from('projects').select('*').order('created_at', { ascending: true }); return data || []; },
+  async fetchNotes()    { const { data } = await sb.from('notes').select('*').order('created_at', { ascending: false }); return data || []; },
+
+  async addTask(t)      { const { data } = await sb.from('tasks').insert({ user_id: currentUser.id, text: t.text, done: false, priority: t.priority }).select().single(); return data; },
+  async toggleTask(id, done) { await sb.from('tasks').update({ done }).eq('id', id); },
+  async deleteTask(id)  { await sb.from('tasks').delete().eq('id', id); },
+
+  async addProject(p)   { const { data } = await sb.from('projects').insert({ user_id: currentUser.id, name: p.name, color: p.color, progress: 0 }).select().single(); return data; },
+  async updateProgress(id, progress) { await sb.from('projects').update({ progress }).eq('id', id); },
+  async deleteProject(id) { await sb.from('projects').delete().eq('id', id); },
+
+  async addNote()       { const { data } = await sb.from('notes').insert({ user_id: currentUser.id, text: '' }).select().single(); return data; },
+  async updateNote(id, text) { await sb.from('notes').update({ text }).eq('id', id); },
+  async deleteNote(id)  { await sb.from('notes').delete().eq('id', id); },
+};
 
 // ── Auth guard ────────────────────────────────────────────────────────
 sb.auth.getSession().then(({ data: { session } }) => {
@@ -433,39 +448,16 @@ function initDashboard(user) {
   document.getElementById('profile-since').textContent =
     new Date(user.created_at).toLocaleDateString('en', { month:'short', year:'numeric' });
 
-  // Load data
-  tasks    = load('tasks', getDefaultTasks());
-  projects = load('projects', getDefaultProjects());
-  notes    = load('notes', getDefaultNotes());
+  // Load data from Supabase
+  [tasks, projects, notes] = await Promise.all([
+    db.fetchTasks(), db.fetchProjects(), db.fetchNotes()
+  ]);
 
   renderAll();
   renderActivityChart();
 }
 
-// ── Default data ──────────────────────────────────────────────────────
-function getDefaultTasks() {
-  return [
-    { id: uid(), text: 'Review Q2 roadmap', done: true,  priority: 'high',   created: Date.now() },
-    { id: uid(), text: 'Design system audit', done: false, priority: 'high',   created: Date.now() },
-    { id: uid(), text: 'Stakeholder sync — 3pm', done: false, priority: 'medium', created: Date.now() },
-    { id: uid(), text: 'Ship onboarding v2', done: false, priority: 'medium', created: Date.now() },
-    { id: uid(), text: 'Write release notes', done: false, priority: 'low',    created: Date.now() },
-  ];
-}
-function getDefaultProjects() {
-  return [
-    { id: uid(), name: 'FlowDesk App',   color: '#0D9488', progress: 65, created: Date.now() },
-    { id: uid(), name: 'Marketing Site', color: '#3B82F6', progress: 40, created: Date.now() },
-    { id: uid(), name: 'API v2',         color: '#F97316', progress: 20, created: Date.now() },
-  ];
-}
-function getDefaultNotes() {
-  return [
-    { id: uid(), text: 'Need to check Supabase SMTP config before shipping email flow.', created: Date.now() },
-    { id: uid(), text: 'Idea: add a Kanban view for tasks in v1.1.', created: Date.now() },
-  ];
-}
-function uid() { return Math.random().toString(36).slice(2, 10); }
+function uid() { return crypto.randomUUID(); }
 
 // ── Render all ────────────────────────────────────────────────────────
 function renderAll() {
@@ -532,37 +524,34 @@ function renderTasksTab() {
     : `<div class="glass rounded-2xl py-12 text-center text-sm text-[#475569]">No tasks here. Add one above!</div>`;
 }
 
-function addTask() {
-  const input = document.getElementById('task-input');
+async function addTask() {
+  const input    = document.getElementById('task-input');
   const priority = document.getElementById('task-priority').value;
-  const text = input.value.trim();
+  const text     = input.value.trim();
   if (!text) return;
-  tasks.unshift({ id: uid(), text, done: false, priority, created: Date.now() });
-  save('tasks', tasks);
-  input.value = '';
-  renderAll();
-  showToast('Task added');
+  const created = await db.addTask({ text, priority });
+  if (created) { tasks.unshift(created); input.value = ''; renderAll(); showToast('Task added'); }
 }
 
-function quickAddTask() {
+async function quickAddTask() {
   const input = document.getElementById('ov-task-input');
-  const text = input.value.trim();
+  const text  = input.value.trim();
   if (!text) return;
-  tasks.unshift({ id: uid(), text, done: false, priority: 'medium', created: Date.now() });
-  save('tasks', tasks);
-  input.value = '';
-  renderAll();
-  showToast('Task added');
+  const created = await db.addTask({ text, priority: 'medium' });
+  if (created) { tasks.unshift(created); input.value = ''; renderAll(); showToast('Task added'); }
 }
 
-function toggleTask(id) {
+async function toggleTask(id) {
   const t = tasks.find(x => x.id === id);
-  if (t) { t.done = !t.done; save('tasks', tasks); renderAll(); }
+  if (!t) return;
+  t.done = !t.done;
+  await db.toggleTask(id, t.done);
+  renderAll();
 }
 
-function deleteTask(id) {
+async function deleteTask(id) {
+  await db.deleteTask(id);
   tasks = tasks.filter(x => x.id !== id);
-  save('tasks', tasks);
   renderAll();
   showToast('Task deleted');
 }
@@ -601,28 +590,27 @@ function renderProjectsTab() {
 function openProjectModal()  { document.getElementById('project-modal').classList.remove('hidden'); setTimeout(()=>document.getElementById('project-name').focus(),50); }
 function closeProjectModal() { document.getElementById('project-modal').classList.add('hidden'); }
 
-function saveProject() {
-  const name = document.getElementById('project-name').value.trim();
+async function saveProject() {
+  const name  = document.getElementById('project-name').value.trim();
   const color = document.getElementById('project-color').value;
   if (!name) return;
-  projects.push({ id: uid(), name, color, progress: 0, created: Date.now() });
-  save('projects', projects);
-  document.getElementById('project-name').value = '';
-  closeProjectModal();
-  renderAll();
-  showToast('Project created');
+  const created = await db.addProject({ name, color });
+  if (created) { projects.push(created); document.getElementById('project-name').value = ''; closeProjectModal(); renderAll(); showToast('Project created'); }
 }
 
-function deleteProject(id) {
+async function deleteProject(id) {
+  await db.deleteProject(id);
   projects = projects.filter(x => x.id !== id);
-  save('projects', projects);
   renderAll();
   showToast('Project deleted');
 }
 
-function updateProgress(id, delta) {
+async function updateProgress(id, delta) {
   const p = projects.find(x => x.id === id);
-  if (p) { p.progress = Math.max(0, Math.min(100, p.progress + delta)); save('projects', projects); renderAll(); }
+  if (!p) return;
+  p.progress = Math.max(0, Math.min(100, p.progress + delta));
+  await db.updateProgress(id, p.progress);
+  renderAll();
 }
 
 document.getElementById('project-modal').addEventListener('click', e => {
@@ -649,18 +637,17 @@ function renderNotesTab() {
   document.getElementById('profile-notes').textContent = notes.length;
 }
 
-function addNote() {
-  notes.unshift({ id: uid(), text: '', created: Date.now() });
-  save('notes', notes);
-  renderNotesTab();
+async function addNote() {
+  const created = await db.addNote();
+  if (created) { notes.unshift(created); renderNotesTab(); }
 }
-function updateNote(id, text) {
+async function updateNote(id, text) {
   const n = notes.find(x => x.id === id);
-  if (n) { n.text = text; save('notes', notes); }
+  if (n) { n.text = text; await db.updateNote(id, text); }
 }
-function deleteNote(id) {
+async function deleteNote(id) {
+  await db.deleteNote(id);
   notes = notes.filter(x => x.id !== id);
-  save('notes', notes);
   renderNotesTab();
   showToast('Note deleted');
 }
