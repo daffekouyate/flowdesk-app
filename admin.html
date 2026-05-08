@@ -516,7 +516,7 @@
               <button type="button" onclick="generatePassword()" class="ml-2 text-xs text-blue-600 hover:underline cursor-pointer font-normal">Generate</button>
             </label>
             <div class="relative">
-              <input id="create-password" type="text" placeholder="Min. 6 characters" autocomplete="new-password"
+              <input id="create-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password"
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr font-mono pr-10" />
               <button type="button" onclick="copyPassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 tr cursor-pointer" aria-label="Copy password">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -578,7 +578,7 @@
               <span class="text-slate-400 font-normal">(leave blank to keep current)</span>
             </label>
             <div class="relative">
-              <input id="edit-password" type="text" placeholder="Min. 6 characters" autocomplete="new-password"
+              <input id="edit-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password"
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr font-mono pr-10" />
               <button type="button" onclick="generateEditPassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 tr cursor-pointer" aria-label="Generate password">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/></svg>
@@ -650,12 +650,21 @@
 <script>
 // ── Supabase ──────────────────────────────────────────────────────────
 const { createClient } = supabase;
+const SUPA_URL = 'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com';
 const sb = createClient(
-  'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com',
+  SUPA_URL,
   'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoiYW5vbiJ9.uDWcW4l6DFY9JxJ9cD-MfpKEu_zSNg0EkmhIxnxmxi4'
 );
-const SERVICE_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.6vGMJk0Fy4ob_k-bq16rQUaSX_PnfMTGyBawro0-3jU';
-const SUPA_URL    = 'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com';
+// La service_role key est maintenant stockée dans l'Edge Function côté serveur.
+// Tous les appels admin passent par /functions/v1/admin-api avec le JWT de l'utilisateur.
+const ADMIN_API = `${SUPA_URL}/functions/v1/admin-api`;
+
+// ── HTML escaping (anti-XSS) ──────────────────────────────────────────
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
 
 // ── State ─────────────────────────────────────────────────────────────
 let allUsers = [], filteredUsers = [], currentPage = 0;
@@ -682,6 +691,14 @@ async function adminLogin(e) {
 }
 
 function initAdmin(user) {
+  // Vérification du rôle admin (doit être défini via app_metadata côté serveur)
+  const role = user.app_metadata?.role;
+  if (role !== 'admin') {
+    document.getElementById('login-error').textContent = 'Accès refusé — compte non administrateur.';
+    document.getElementById('login-error').classList.remove('hidden');
+    sb.auth.signOut();
+    return;
+  }
   document.getElementById('login-gate').style.display = 'none';
   document.getElementById('sidebar-email').textContent = user.email;
   document.getElementById('sidebar-avatar').textContent = user.email[0].toUpperCase();
@@ -730,10 +747,21 @@ async function loadAll() {
   }
 }
 
-async function fetchUsers() {
-  const res = await fetch(`${SUPA_URL}/auth/v1/admin/users?per_page=1000`, {
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+async function adminFetch(path, options = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  const token = session?.access_token;
+  return fetch(`${ADMIN_API}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
   });
+}
+
+async function fetchUsers() {
+  const res = await adminFetch('/users?per_page=1000');
   const data = await res.json();
   allUsers = data.users || [];
 
@@ -897,18 +925,18 @@ function fmtRelative(d) {
 function renderRecentUsers() {
   const recent = [...allUsers].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
   document.getElementById('recent-users-body').innerHTML = recent.length ? recent.map(u => `
-    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${u.id}')">
+    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${esc(u.id)}')">
       <td class="px-5 py-3">
         <div class="flex items-center gap-3">
           ${avatarHtml(u.email)}
           <div>
-            <p class="font-medium text-slate-800 text-sm">${u.email}</p>
-            <p class="text-xs text-slate-400 font-mono">${u.id.slice(0,8)}…</p>
+            <p class="font-medium text-slate-800 text-sm">${esc(u.email)}</p>
+            <p class="text-xs text-slate-400 font-mono">${esc(u.id.slice(0,8))}…</p>
           </div>
         </div>
       </td>
       <td class="px-5 py-3 hidden sm:table-cell">
-        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${esc(u.app_metadata?.provider || 'email')}</span>
       </td>
       <td class="px-5 py-3 hidden md:table-cell text-slate-500 text-xs">${fmtRelative(u.created_at)}</td>
       <td class="px-5 py-3">${statusBadge(u)}</td>
@@ -947,27 +975,27 @@ function renderUsersPage() {
   document.getElementById('next-btn').disabled = start + PAGE_SIZE >= total;
 
   document.getElementById('users-table-body').innerHTML = page.length ? page.map(u => `
-    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${u.id}')">
+    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${esc(u.id)}')">
       <td class="px-5 py-3">
         <div class="flex items-center gap-3">
           ${avatarHtml(u.email)}
           <div>
-            <p class="font-medium text-slate-800 text-sm">${u.email}</p>
-            <p class="text-xs text-slate-400 font-mono">${u.id.slice(0,8)}…</p>
+            <p class="font-medium text-slate-800 text-sm">${esc(u.email)}</p>
+            <p class="text-xs text-slate-400 font-mono">${esc(u.id.slice(0,8))}…</p>
           </div>
         </div>
       </td>
       <td class="px-5 py-3 hidden sm:table-cell">
-        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${esc(u.app_metadata?.provider || 'email')}</span>
       </td>
       <td class="px-5 py-3 hidden md:table-cell text-slate-500 text-xs">${fmtRelative(u.last_sign_in_at)}</td>
       <td class="px-5 py-3 hidden lg:table-cell text-slate-500 text-xs">${fmtDate(u.created_at)}</td>
       <td class="px-5 py-3">${statusBadge(u)}</td>
       <td class="px-5 py-3">
         <div class="flex items-center gap-3">
-          <button onclick="event.stopPropagation(); openUserModal('${u.id}')"
+          <button onclick="event.stopPropagation(); openUserModal('${esc(u.id)}')"
             class="text-xs text-blue-600 hover:underline cursor-pointer">View</button>
-          <button onclick="event.stopPropagation(); openEditModal('${u.id}')"
+          <button onclick="event.stopPropagation(); openEditModal('${esc(u.id)}')"
             class="text-xs text-slate-500 hover:text-blue-600 hover:underline cursor-pointer">Edit</button>
         </div>
       </td>
@@ -990,11 +1018,11 @@ function renderSessionsTable() {
       <td class="px-5 py-3">
         <div class="flex items-center gap-3">
           ${avatarHtml(u.email)}
-          <span class="text-sm text-slate-700">${u.email}</span>
+          <span class="text-sm text-slate-700">${esc(u.email)}</span>
         </div>
       </td>
       <td class="px-5 py-3 hidden sm:table-cell">
-        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${esc(u.app_metadata?.provider || 'email')}</span>
       </td>
       <td class="px-5 py-3 text-sm text-slate-500">${fmtRelative(u.last_sign_in_at)}</td>
     </tr>`).join('')
@@ -1009,8 +1037,8 @@ function openUserModal(id) {
     <div class="flex items-center gap-4 mb-5">
       ${avatarHtml(u.email).replace('w-8 h-8', 'w-14 h-14 text-xl')}
       <div>
-        <p class="font-bold text-slate-800">${u.email}</p>
-        <p class="text-xs text-slate-400 font-mono mt-0.5">${u.id}</p>
+        <p class="font-bold text-slate-800">${esc(u.email)}</p>
+        <p class="text-xs text-slate-400 font-mono mt-0.5">${esc(u.id)}</p>
       </div>
     </div>
     <div class="space-y-2 text-sm">
@@ -1019,7 +1047,7 @@ function openUserModal(id) {
       </div>
       <div class="flex justify-between py-2 border-b border-slate-50">
         <span class="text-slate-500">Provider</span>
-        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${esc(u.app_metadata?.provider || 'email')}</span>
       </div>
       <div class="flex justify-between py-2 border-b border-slate-50">
         <span class="text-slate-500">Created</span>
@@ -1046,10 +1074,7 @@ function closeUserModal() {
 // ── Delete user ───────────────────────────────────────────────────────
 async function deleteUser(id, email) {
   if (!confirm(`Delete user ${email}?\nThis action cannot be undone.`)) return;
-  const res = await fetch(`${SUPA_URL}/auth/v1/admin/users/${id}`, {
-    method: 'DELETE',
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-  });
+  const res = await adminFetch(`/users/${id}`, { method: 'DELETE' });
   if (res.ok) {
     allUsers = allUsers.filter(u => u.id !== id);
     closeUserModal();
@@ -1166,10 +1191,9 @@ async function submitEditUser(e) {
   const body = { email, email_confirm: editConfirmed };
   if (pass) body.password = pass;
 
-  const res  = await fetch(`${SUPA_URL}/auth/v1/admin/users/${id}`, {
+  const res = await adminFetch(`/users/${id}`, {
     method: 'PUT',
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   btn.disabled = false; btn.textContent = 'Save changes';
@@ -1262,10 +1286,9 @@ async function createUser(e) {
   btn.disabled = true; btn.textContent = 'Creating…';
 
   const body = { email, password: pass, email_confirm: autoConfirm };
-  const res  = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
+  const res  = await adminFetch('/users', {
     method: 'POST',
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   btn.disabled = false; btn.textContent = 'Create user';

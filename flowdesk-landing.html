@@ -108,7 +108,7 @@
               <svg class="w-4 h-4 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
               My Dashboard
             </a>
-            <a href="admin.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#134E4A] hover:bg-[#0D9488]/10 transition-smooth cursor-pointer">
+            <a id="nav-admin-link" href="admin.html" style="display:none" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#134E4A] hover:bg-[#0D9488]/10 transition-smooth cursor-pointer">
               <svg class="w-4 h-4 text-[#475569]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               Admin panel
             </a>
@@ -120,9 +120,9 @@
           </div>
         </div>
 
-        <a href="#" class="bg-[#F97316] hover:bg-[#ea6c0d] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-smooth cursor-pointer shadow-sm">
+        <button onclick="openModal()" class="bg-[#F97316] hover:bg-[#ea6c0d] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-smooth cursor-pointer shadow-sm">
           Get started free
-        </a>
+        </button>
       </div>
     </nav>
   </header>
@@ -150,9 +150,9 @@
 
       <!-- CTA buttons -->
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 fade-up delay-3">
-        <a href="#" class="w-full sm:w-auto bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer shadow-md text-base">
+        <button onclick="openModal()" class="w-full sm:w-auto bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer shadow-md text-base">
           Start for free — no card needed
-        </a>
+        </button>
         <a href="#" class="w-full sm:w-auto glass hover:shadow-md text-[#134E4A] font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer text-base flex items-center justify-center gap-2">
           <svg class="w-5 h-5 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -405,9 +405,9 @@
         <p class="text-[#475569] text-lg mb-8 max-w-xl mx-auto leading-relaxed">
           Join thousands of teams that ship faster and collaborate better with FlowDesk.
         </p>
-        <a href="#" class="inline-block bg-[#F97316] hover:bg-[#ea6c0d] text-white font-bold px-10 py-4 rounded-2xl transition-smooth cursor-pointer shadow-lg text-base">
+        <button onclick="openModal()" class="inline-block bg-[#F97316] hover:bg-[#ea6c0d] text-white font-bold px-10 py-4 rounded-2xl transition-smooth cursor-pointer shadow-lg text-base">
           Get started for free
-        </a>
+        </button>
         <p class="mt-4 text-xs text-[#475569]">No credit card required · Cancel anytime</p>
       </div>
     </div>
@@ -560,19 +560,23 @@
 
     // ── Session state — update navbar ────────────────────────────────
     function updateNavbar(user) {
-      const signinBtn = document.getElementById('nav-signin');
-      const userMenu  = document.getElementById('nav-user-menu');
-      const avatar    = document.getElementById('nav-user-avatar');
-      const nameEl    = document.getElementById('nav-user-name');
+      const signinBtn  = document.getElementById('nav-signin');
+      const userMenu   = document.getElementById('nav-user-menu');
+      const avatar     = document.getElementById('nav-user-avatar');
+      const nameEl     = document.getElementById('nav-user-name');
+      const adminLink  = document.getElementById('nav-admin-link');
       if (user) {
         const name = user.email.split('@')[0];
         signinBtn.style.display  = 'none';
         userMenu.style.display   = 'block';
         avatar.textContent = name[0].toUpperCase();
         nameEl.textContent = name;
+        // Afficher le lien admin uniquement si role = 'admin' (défini via app_metadata)
+        adminLink.style.display = user.app_metadata?.role === 'admin' ? 'flex' : 'none';
       } else {
         signinBtn.style.display = 'inline';
         userMenu.style.display  = 'none';
+        adminLink.style.display = 'none';
       }
     }
 

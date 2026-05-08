@@ -140,7 +140,7 @@
     </button>
     <div>
       <h1 id="tab-title" class="text-sm font-bold text-slate-800">Overview</h1>
-      <p id="tab-sub" class="text-xs text-slate-400" id="topbar-date"></p>
+      <p id="tab-sub" class="text-xs text-slate-400"></p>
     </div>
     <div class="ml-auto flex items-center gap-3">
       <a href="flowdesk-landing.html" class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer">← Back to site</a>
@@ -391,11 +391,18 @@ const sb = createClient(
 let currentUser = null;
 let tasks = [], projects = [], notes = [];
 
+// ── HTML escaping (anti-XSS) ──────────────────────────────────────────
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
 // ── Supabase CRUD helpers ─────────────────────────────────────────────
 const db = {
-  async fetchTasks()    { const { data } = await sb.from('tasks').select('*').order('created_at', { ascending: false }); return data || []; },
-  async fetchProjects() { const { data } = await sb.from('projects').select('*').order('created_at', { ascending: true }); return data || []; },
-  async fetchNotes()    { const { data } = await sb.from('notes').select('*').order('created_at', { ascending: false }); return data || []; },
+  async fetchTasks()    { const { data } = await sb.from('tasks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }); return data || []; },
+  async fetchProjects() { const { data } = await sb.from('projects').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true }); return data || []; },
+  async fetchNotes()    { const { data } = await sb.from('notes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }); return data || []; },
 
   async addTask(t)      { const { data } = await sb.from('tasks').insert({ user_id: currentUser.id, text: t.text, done: false, priority: t.priority }).select().single(); return data; },
   async toggleTask(id, done) { await sb.from('tasks').update({ done }).eq('id', id); },
@@ -425,7 +432,7 @@ async function signOut() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────
-function initDashboard(user) {
+async function initDashboard(user) {
   currentUser = user;
   const name = user.email.split('@')[0];
 
@@ -505,10 +512,10 @@ const priorityBadge = { high: 'bg-red-50 text-red-600', medium: 'bg-amber-50 tex
 
 function taskRow(t, compact = false) {
   return `<div class="flex items-center gap-3 bg-white/60 rounded-xl px-3 py-2.5 group tr hover:bg-white/90">
-    <input type="checkbox" class="task-check flex-shrink-0" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')" />
-    <span class="flex-1 text-sm ${t.done ? 'line-through text-[#94A3B8]' : 'text-[#134E4A]'}">${t.text}</span>
-    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${priorityBadge[t.priority] || priorityBadge.medium} hidden sm:inline">${t.priority}</span>
-    ${!compact ? `<button onclick="deleteTask('${t.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 tr cursor-pointer flex-shrink-0" aria-label="Delete">
+    <input type="checkbox" class="task-check flex-shrink-0" ${t.done ? 'checked' : ''} onchange="toggleTask('${esc(t.id)}')" />
+    <span class="flex-1 text-sm ${t.done ? 'line-through text-[#94A3B8]' : 'text-[#134E4A]'}">${esc(t.text)}</span>
+    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${priorityBadge[t.priority] || priorityBadge.medium} hidden sm:inline">${esc(t.priority)}</span>
+    ${!compact ? `<button onclick="deleteTask('${esc(t.id)}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 tr cursor-pointer flex-shrink-0" aria-label="Delete">
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     </button>` : ''}
   </div>`;
@@ -560,20 +567,20 @@ async function deleteTask(id) {
 function projectCard(p) {
   return `<div class="glass rounded-2xl p-4 cursor-default hover:shadow-md tr">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${p.color}"></div>
-      <p class="font-semibold text-[#134E4A] text-sm truncate">${p.name}</p>
-      <button onclick="deleteProject('${p.id}')" class="ml-auto text-slate-300 hover:text-red-400 tr cursor-pointer" aria-label="Delete">
+      <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${esc(p.color)}"></div>
+      <p class="font-semibold text-[#134E4A] text-sm truncate">${esc(p.name)}</p>
+      <button onclick="deleteProject('${esc(p.id)}')" class="ml-auto text-slate-300 hover:text-red-400 tr cursor-pointer" aria-label="Delete">
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="w-full bg-slate-100 rounded-full h-1.5 mb-2">
-      <div class="h-1.5 rounded-full tr" style="width:${p.progress}%;background:${p.color}"></div>
+      <div class="h-1.5 rounded-full tr" style="width:${p.progress}%;background:${esc(p.color)}"></div>
     </div>
     <div class="flex items-center justify-between">
       <p class="text-xs text-[#475569]">${p.progress}% complete</p>
       <div class="flex gap-1">
-        <button onclick="updateProgress('${p.id}',-10)" class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">−</button>
-        <button onclick="updateProgress('${p.id}',10)"  class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">+</button>
+        <button onclick="updateProgress('${esc(p.id)}',-10)" class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">−</button>
+        <button onclick="updateProgress('${esc(p.id)}',10)"  class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">+</button>
       </div>
     </div>
   </div>`;
@@ -627,7 +634,7 @@ function renderNotesTab() {
       <textarea onblur="updateNote('${n.id}', this.value)"
         class="w-full bg-transparent text-sm text-[#134E4A] resize-none outline-none min-h-24 leading-relaxed">${n.text}</textarea>
       <div class="flex items-center justify-between mt-2">
-        <span class="text-xs text-[#475569]">${new Date(n.created).toLocaleDateString('en', { month:'short', day:'numeric' })}</span>
+        <span class="text-xs text-[#475569]">${new Date(n.created_at).toLocaleDateString('en', { month:'short', day:'numeric' })}</span>
         <button onclick="deleteNote('${n.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 tr cursor-pointer" aria-label="Delete">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
         </button>
