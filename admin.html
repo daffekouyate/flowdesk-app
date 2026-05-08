@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowDesk — Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Fira Sans', sans-serif; }
+    .font-mono { font-family: 'Fira Code', monospace; }
+
+    :root {
+      --primary: #1E40AF;
+      --primary-light: #3B82F6;
+      --cta: #F59E0B;
+      --bg: #F8FAFC;
+      --text: #1E3A8A;
+      --sidebar-w: 240px;
+    }
+
+    body { background: var(--bg); color: #1E293B; }
+
+    /* Sidebar */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: #0F172A;
+      transition: transform 220ms ease-out;
+    }
+    #sidebar.collapsed { transform: translateX(-100%); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
+
+    /* Transitions */
+    .tr { transition: all 200ms ease-out; }
+
+    /* KPI card shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 6px;
+    }
+
+    /* Active nav */
+    .nav-item.active { background: rgba(59,130,246,0.15); color: #93C5FD; }
+    .nav-item.active svg { color: #3B82F6; }
+
+    /* Table row hover */
+    tbody tr:hover td { background: #F1F5F9; }
+
+    /* Badge */
+    .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+
+    /* Tooltip */
+    [data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1E293B;
+      color: #fff;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────────────── -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex flex-col">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-3 px-5 py-5 border-b border-white/5">
+    <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-white font-bold text-sm leading-tight">FlowDesk</p>
+      <p class="text-slate-400 text-xs">Admin Panel</p>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+    <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mb-2">Overview</p>
+    <button onclick="showSection('dashboard')" class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button onclick="showSection('analytics')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Analytics
+    </button>
+
+    <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mt-4 mb-2">Management</p>
+    <button onclick="showSection('users')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Users
+      <span id="users-badge" class="ml-auto badge bg-blue-500/20 text-blue-400">—</span>
+    </button>
+    <button onclick="showSection('sessions')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Sessions
+    </button>
+
+    <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mt-4 mb-2">System</p>
+    <button onclick="showSection('settings')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <!-- Admin user -->
+  <div class="px-3 py-4 border-t border-white/5">
+    <div class="flex items-center gap-3 px-3 py-2">
+      <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" id="sidebar-avatar">A</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-white text-xs font-semibold truncate" id="sidebar-email">Admin</p>
+        <p class="text-slate-400 text-xs">Super Admin</p>
+      </div>
+      <button onclick="signOut()" data-tip="Sign out" class="relative text-slate-400 hover:text-red-400 tr cursor-pointer" aria-label="Sign out">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── MAIN ─────────────────────────────────────────────────────────── -->
+<div class="flex-1 flex flex-col min-h-0" style="margin-left: var(--sidebar-w);">
+
+  <!-- Topbar -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center gap-4 z-30 sticky top-0">
+    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-slate-700 tr cursor-pointer lg:hidden" aria-label="Toggle sidebar">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div>
+      <h1 id="page-title" class="text-base font-bold text-slate-800">Dashboard</h1>
+      <p id="page-sub" class="text-xs text-slate-400">Overview of your FlowDesk application</p>
+    </div>
+    <div class="ml-auto flex items-center gap-3">
+      <!-- Search -->
+      <div class="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5 text-sm text-slate-400">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="global-search" type="text" placeholder="Search users…" onkeyup="globalSearch(this.value)"
+          class="bg-transparent outline-none w-40 text-slate-700 placeholder-slate-400 text-sm" />
+      </div>
+      <!-- Refresh -->
+      <button onclick="loadAll()" class="relative text-slate-400 hover:text-blue-600 tr cursor-pointer" data-tip="Refresh data" aria-label="Refresh">
+        <svg id="refresh-icon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      </button>
+      <!-- Notifications -->
+      <button class="relative text-slate-400 hover:text-slate-700 tr cursor-pointer" aria-label="Notifications">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 overflow-y-auto p-6">
+
+    <!-- ── LOGIN GATE ────────────────────────────────────────────── -->
+    <div id="login-gate" class="fixed inset-0 bg-slate-900/80 backdrop-blur z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+        <div class="flex items-center gap-2 mb-6">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <span class="font-bold text-slate-800">FlowDesk Admin</span>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800 mb-1">Admin access</h2>
+        <p class="text-sm text-slate-500 mb-6">Sign in to manage your application</p>
+        <form onsubmit="adminLogin(event)" novalidate>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-email">Email</label>
+            <input id="admin-email" type="email" placeholder="admin@flowdesk.io" autocomplete="email"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr" />
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-password">Password</label>
+            <input id="admin-password" type="password" placeholder="••••••••" autocomplete="current-password"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr" />
+          </div>
+          <p id="login-error" class="hidden text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3"></p>
+          <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl tr cursor-pointer text-sm">
+            Sign in
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD SECTION ─────────────────────────────────────── -->
+    <section id="section-dashboard">
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Users</span>
+            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+          </div>
+          <p id="kpi-total" class="text-3xl font-bold text-slate-800 mb-1">—</p>
+          <p class="text-xs text-slate-400">Registered accounts</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Confirmed</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <svg class="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+          <p id="kpi-confirmed" class="text-3xl font-bold text-slate-800 mb-1">—</p>
+          <p class="text-xs text-slate-400">Email verified</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">This Month</span>
+            <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+              <svg class="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+          </div>
+          <p id="kpi-month" class="text-3xl font-bold text-slate-800 mb-1">—</p>
+          <p class="text-xs text-slate-400">New signups</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Providers</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <svg class="w-4 h-4 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+          </div>
+          <p id="kpi-providers" class="text-3xl font-bold text-slate-800 mb-1">—</p>
+          <p class="text-xs text-slate-400">Auth methods</p>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="grid lg:grid-cols-3 gap-4 mb-6">
+        <!-- Signups chart -->
+        <div class="lg:col-span-2 bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Signups over time</h3>
+              <p class="text-xs text-slate-400">Last 30 days</p>
+            </div>
+            <span class="badge bg-blue-50 text-blue-600">Line chart</span>
+          </div>
+          <canvas id="chart-signups" height="120"></canvas>
+        </div>
+        <!-- Provider breakdown -->
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Auth providers</h3>
+              <p class="text-xs text-slate-400">Distribution</p>
+            </div>
+            <span class="badge bg-purple-50 text-purple-600">Donut</span>
+          </div>
+          <canvas id="chart-providers" height="160"></canvas>
+          <div id="provider-legend" class="mt-3 space-y-1.5"></div>
+        </div>
+      </div>
+
+      <!-- Recent users -->
+      <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h3 class="text-sm font-bold text-slate-800">Recent registrations</h3>
+          <button onclick="showSection('users')" class="text-xs text-blue-600 hover:underline cursor-pointer">View all</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                <th class="text-left px-5 py-3 font-semibold">User</th>
+                <th class="text-left px-5 py-3 font-semibold hidden sm:table-cell">Provider</th>
+                <th class="text-left px-5 py-3 font-semibold hidden md:table-cell">Signed up</th>
+                <th class="text-left px-5 py-3 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody id="recent-users-body">
+              <tr><td colspan="4" class="px-5 py-8 text-center text-slate-400 text-sm">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ANALYTICS SECTION ─────────────────────────────────────── -->
+    <section id="section-analytics" class="hidden">
+      <div class="grid lg:grid-cols-2 gap-4 mb-4">
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Daily signups — 30 days</h3>
+          <p class="text-xs text-slate-400 mb-4">New registrations per day</p>
+          <canvas id="chart-daily" height="140"></canvas>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Confirmation rate</h3>
+          <p class="text-xs text-slate-400 mb-4">Confirmed vs unconfirmed</p>
+          <canvas id="chart-confirm" height="140"></canvas>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">Cumulative growth</h3>
+        <p class="text-xs text-slate-400 mb-4">Total users over time</p>
+        <canvas id="chart-cumulative" height="100"></canvas>
+      </div>
+    </section>
+
+    <!-- ── USERS SECTION ─────────────────────────────────────────── -->
+    <section id="section-users" class="hidden">
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 flex-1 min-w-48">
+          <svg class="w-4 h-4 text-slate-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="user-search" type="text" placeholder="Search by email…" onkeyup="filterUsers()"
+            class="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder-slate-400" />
+        </div>
+        <select id="status-filter" onchange="filterUsers()" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none cursor-pointer tr hover:border-blue-400">
+          <option value="all">All statuses</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="unconfirmed">Unconfirmed</option>
+        </select>
+        <select id="sort-filter" onchange="filterUsers()" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none cursor-pointer tr hover:border-blue-400">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="email">Email A-Z</option>
+        </select>
+        <button onclick="exportCSV()" class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 hover:border-blue-400 tr cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+        <button onclick="openCreateModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 rounded-lg px-3 py-2 text-sm text-white font-semibold tr cursor-pointer shadow-sm">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create user
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide border-b border-slate-100">
+                <th class="text-left px-5 py-3 font-semibold">User</th>
+                <th class="text-left px-5 py-3 font-semibold hidden sm:table-cell">Provider</th>
+                <th class="text-left px-5 py-3 font-semibold hidden md:table-cell">Last sign in</th>
+                <th class="text-left px-5 py-3 font-semibold hidden lg:table-cell">Created</th>
+                <th class="text-left px-5 py-3 font-semibold">Status</th>
+                <th class="text-left px-5 py-3 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr><td colspan="6" class="px-5 py-10 text-center text-slate-400">Loading users…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+          <p id="pagination-info" class="text-xs text-slate-400">—</p>
+          <div class="flex gap-2">
+            <button id="prev-btn" onclick="changePage(-1)" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 rounded-lg tr cursor-pointer disabled:opacity-40" disabled>← Prev</button>
+            <button id="next-btn" onclick="changePage(1)"  class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 rounded-lg tr cursor-pointer disabled:opacity-40">Next →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SESSIONS SECTION ───────────────────────────────────────── -->
+    <section id="section-sessions" class="hidden">
+      <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h3 class="text-sm font-bold text-slate-800">Active sessions</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Users with recent sign-in activity</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                <th class="text-left px-5 py-3 font-semibold">User</th>
+                <th class="text-left px-5 py-3 font-semibold hidden sm:table-cell">Provider</th>
+                <th class="text-left px-5 py-3 font-semibold">Last sign in</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-body">
+              <tr><td colspan="3" class="px-5 py-10 text-center text-slate-400">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SETTINGS SECTION ──────────────────────────────────────── -->
+    <section id="section-settings" class="hidden">
+      <div class="grid lg:grid-cols-2 gap-4">
+        <!-- App info -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Application
+          </h3>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">App name</span>
+              <span class="font-medium text-slate-800">FlowDesk</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">Version</span>
+              <span class="font-mono text-xs text-slate-800 bg-slate-100 px-2 py-0.5 rounded">v1.0.0</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">Environment</span>
+              <span class="badge bg-amber-50 text-amber-700">Development</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span class="text-slate-500">Admin panel</span>
+              <span class="badge bg-emerald-50 text-emerald-700">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Supabase config -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Supabase
+          </h3>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">URL</span>
+              <span class="font-mono text-xs text-slate-600 truncate max-w-40">supabasekong-d6mfu9m…</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">Auth</span>
+              <span class="badge bg-emerald-50 text-emerald-700">Connected</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-50">
+              <span class="text-slate-500">Email confirm</span>
+              <span class="badge bg-slate-100 text-slate-600">Disabled</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span class="text-slate-500">Anon key</span>
+              <span class="font-mono text-xs text-slate-600">eyJ0eXAiOiJKV1Q…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-red-100 shadow-sm">
+          <h3 class="text-sm font-bold text-red-600 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Danger zone
+          </h3>
+          <div class="flex flex-wrap gap-3">
+            <button onclick="if(confirm('Sign out all users? This will invalidate all sessions.')) alert('Feature requires service_role key — implement via Edge Function.')"
+              class="px-4 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 tr cursor-pointer">
+              Sign out all users
+            </button>
+            <button onclick="alert('Export initiated — implement server-side for large datasets.')"
+              class="px-4 py-2 text-sm border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 tr cursor-pointer">
+              Export all data
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Create user modal -->
+    <div id="create-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.6); backdrop-filter:blur(4px);">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-slate-800">Create a user</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Account created instantly via admin API</p>
+          </div>
+          <button onclick="closeCreateModal()" class="text-slate-400 hover:text-slate-700 tr cursor-pointer" aria-label="Close">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <form onsubmit="createUser(event)" novalidate class="p-6 space-y-4">
+          <!-- Email -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="create-email">Email</label>
+            <input id="create-email" type="email" placeholder="user@example.com" autocomplete="off"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr" />
+            <p id="create-email-err" class="hidden mt-1 text-xs text-red-500">Veuillez entrer un email valide.</p>
+          </div>
+          <!-- Password -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="create-password">
+              Password
+              <button type="button" onclick="generatePassword()" class="ml-2 text-xs text-blue-600 hover:underline cursor-pointer font-normal">Generate</button>
+            </label>
+            <div class="relative">
+              <input id="create-password" type="text" placeholder="Min. 6 characters" autocomplete="new-password"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr font-mono pr-10" />
+              <button type="button" onclick="copyPassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 tr cursor-pointer" aria-label="Copy password">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              </button>
+            </div>
+            <p id="create-pass-err" class="hidden mt-1 text-xs text-red-500">Le mot de passe doit faire au moins 6 caractères.</p>
+          </div>
+          <!-- Options -->
+          <div class="flex items-center justify-between py-3 border-t border-slate-100">
+            <div>
+              <p class="text-sm font-medium text-slate-700">Confirm email automatically</p>
+              <p class="text-xs text-slate-400">Skip email verification for this user</p>
+            </div>
+            <button type="button" id="confirm-toggle" onclick="toggleConfirm()"
+              class="relative w-11 h-6 rounded-full bg-blue-600 tr cursor-pointer flex-shrink-0" role="switch" aria-checked="true">
+              <span id="confirm-thumb" class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full shadow tr"></span>
+            </button>
+          </div>
+          <!-- Error -->
+          <p id="create-api-err" class="hidden text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2"></p>
+          <!-- Actions -->
+          <div class="flex gap-3 pt-1">
+            <button type="submit" id="create-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl tr cursor-pointer text-sm">
+              Create user
+            </button>
+            <button type="button" onclick="closeCreateModal()" class="flex-1 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 tr cursor-pointer text-sm">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit user modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.6); backdrop-filter:blur(4px);">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-slate-800">Edit user</h3>
+            <p id="edit-modal-sub" class="text-xs text-slate-400 mt-0.5 truncate max-w-xs"></p>
+          </div>
+          <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-700 tr cursor-pointer" aria-label="Close">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <form onsubmit="submitEditUser(event)" novalidate class="p-6 space-y-4">
+          <input type="hidden" id="edit-user-id" />
+          <!-- Email -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="edit-email">Email</label>
+            <input id="edit-email" type="email" autocomplete="off"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr" />
+            <p id="edit-email-err" class="hidden mt-1 text-xs text-red-500">Veuillez entrer un email valide.</p>
+          </div>
+          <!-- New password -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="edit-password">
+              New password
+              <span class="text-slate-400 font-normal">(leave blank to keep current)</span>
+            </label>
+            <div class="relative">
+              <input id="edit-password" type="text" placeholder="Min. 6 characters" autocomplete="new-password"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 tr font-mono pr-10" />
+              <button type="button" onclick="generateEditPassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 tr cursor-pointer" aria-label="Generate password">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/></svg>
+              </button>
+            </div>
+            <p id="edit-pass-err" class="hidden mt-1 text-xs text-red-500">Le mot de passe doit faire au moins 6 caractères.</p>
+          </div>
+          <!-- Email confirmed toggle -->
+          <div class="flex items-center justify-between py-3 border-t border-slate-100">
+            <div>
+              <p class="text-sm font-medium text-slate-700">Email confirmed</p>
+              <p class="text-xs text-slate-400">Mark this account as verified</p>
+            </div>
+            <button type="button" id="edit-confirm-toggle" onclick="toggleEditConfirm()"
+              class="relative w-11 h-6 rounded-full tr cursor-pointer flex-shrink-0" role="switch">
+              <span id="edit-confirm-thumb" class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow tr"></span>
+            </button>
+          </div>
+          <!-- API error -->
+          <p id="edit-api-err" class="hidden text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2"></p>
+          <!-- Actions -->
+          <div class="flex gap-3 pt-1">
+            <button type="submit" id="edit-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl tr cursor-pointer text-sm">
+              Save changes
+            </button>
+            <button type="button" onclick="closeEditModal()" class="flex-1 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 tr cursor-pointer text-sm">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- User detail modal -->
+    <div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.6); backdrop-filter:blur(4px);">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h3 class="font-bold text-slate-800">User details</h3>
+          <button onclick="closeUserModal()" class="text-slate-400 hover:text-slate-700 tr cursor-pointer" aria-label="Close">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="user-modal-body" class="p-6"></div>
+        <div class="flex gap-3 px-6 pb-5">
+          <button id="modal-edit-btn" class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl tr cursor-pointer">
+            Edit
+          </button>
+          <button id="modal-delete-btn" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl tr cursor-pointer">
+            Delete
+          </button>
+          <button onclick="closeUserModal()" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-50 tr cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-[60] hidden">
+      <div class="flex items-center gap-3 bg-slate-800 text-white text-sm px-4 py-3 rounded-xl shadow-xl">
+        <svg id="toast-icon" class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="toast-msg"></span>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com',
+  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoiYW5vbiJ9.uDWcW4l6DFY9JxJ9cD-MfpKEu_zSNg0EkmhIxnxmxi4'
+);
+const SERVICE_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.6vGMJk0Fy4ob_k-bq16rQUaSX_PnfMTGyBawro0-3jU';
+const SUPA_URL    = 'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com';
+
+// ── State ─────────────────────────────────────────────────────────────
+let allUsers = [], filteredUsers = [], currentPage = 0;
+const PAGE_SIZE = 10;
+let charts = {};
+
+// ── Auth gate ─────────────────────────────────────────────────────────
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session) initAdmin(session.user);
+});
+
+async function adminLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('admin-email').value.trim();
+  const pass  = document.getElementById('admin-password').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-error');
+  err.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (error) { err.textContent = error.message; err.classList.remove('hidden'); return; }
+  initAdmin(data.user);
+}
+
+function initAdmin(user) {
+  document.getElementById('login-gate').style.display = 'none';
+  document.getElementById('sidebar-email').textContent = user.email;
+  document.getElementById('sidebar-avatar').textContent = user.email[0].toUpperCase();
+  loadAll();
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────
+const sections = ['dashboard','analytics','users','sessions','settings'];
+const titles   = {
+  dashboard: ['Dashboard', 'Overview of your FlowDesk application'],
+  analytics:  ['Analytics', 'Detailed signup and activity metrics'],
+  users:      ['Users', 'Manage all registered accounts'],
+  sessions:   ['Sessions', 'Recent sign-in activity'],
+  settings:   ['Settings', 'Application configuration'],
+};
+
+function showSection(name) {
+  sections.forEach(s => {
+    document.getElementById(`section-${s}`).classList.toggle('hidden', s !== name);
+  });
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().startsWith(name));
+  });
+  document.getElementById('page-title').textContent = titles[name][0];
+  document.getElementById('page-sub').textContent   = titles[name][1];
+  if (name === 'analytics') renderAnalyticsCharts();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+// ── Load all data ─────────────────────────────────────────────────────
+async function loadAll() {
+  const icon = document.getElementById('refresh-icon');
+  icon.style.animation = 'spin 0.8s linear infinite';
+  try {
+    await fetchUsers();
+  } finally {
+    icon.style.animation = '';
+  }
+}
+
+async function fetchUsers() {
+  const res = await fetch(`${SUPA_URL}/auth/v1/admin/users?per_page=1000`, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+  });
+  const data = await res.json();
+  allUsers = data.users || [];
+
+  // KPIs
+  const confirmed = allUsers.filter(u => u.email_confirmed_at).length;
+  const now = new Date(); const thisMonth = allUsers.filter(u => {
+    const d = new Date(u.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  const providers = [...new Set(allUsers.flatMap(u => u.app_metadata?.providers || []))].length;
+
+  document.getElementById('kpi-total').textContent     = allUsers.length;
+  document.getElementById('kpi-confirmed').textContent = confirmed;
+  document.getElementById('kpi-month').textContent     = thisMonth;
+  document.getElementById('kpi-providers').textContent = providers || 1;
+  document.getElementById('users-badge').textContent   = allUsers.length;
+
+  renderRecentUsers();
+  renderMainCharts();
+  filterUsers();
+  renderSessionsTable();
+}
+
+// ── Charts ────────────────────────────────────────────────────────────
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function renderMainCharts() {
+  // Signups last 30 days
+  const days = 30;
+  const labels = [], counts = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString('en', { month: 'short', day: 'numeric' }));
+    counts.push(allUsers.filter(u => {
+      const c = new Date(u.created_at);
+      return c.toDateString() === d.toDateString();
+    }).length);
+  }
+  destroyChart('signups');
+  charts.signups = new Chart(document.getElementById('chart-signups'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Signups',
+        data: counts,
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59,130,246,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: {
+      x: { grid: { display: false }, ticks: { maxTicksLimit: 7, font: { size: 11 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#F1F5F9' } }
+    }}
+  });
+
+  // Provider donut
+  const providerMap = {};
+  allUsers.forEach(u => {
+    const p = u.app_metadata?.provider || 'email';
+    providerMap[p] = (providerMap[p] || 0) + 1;
+  });
+  const pLabels = Object.keys(providerMap);
+  const pData   = Object.values(providerMap);
+  const pColors = ['#3B82F6','#F59E0B','#10B981','#8B5CF6','#EF4444'];
+  destroyChart('providers');
+  charts.providers = new Chart(document.getElementById('chart-providers'), {
+    type: 'doughnut',
+    data: { labels: pLabels, datasets: [{ data: pData, backgroundColor: pColors, borderWidth: 0 }] },
+    options: { responsive: true, cutout: '68%', plugins: { legend: { display: false } } }
+  });
+  const legend = document.getElementById('provider-legend');
+  legend.innerHTML = pLabels.map((l, i) => `
+    <div class="flex items-center justify-between text-xs">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full" style="background:${pColors[i]}"></div>
+        <span class="text-slate-600 capitalize">${l}</span>
+      </div>
+      <span class="font-semibold text-slate-800">${pData[i]}</span>
+    </div>`).join('');
+}
+
+function renderAnalyticsCharts() {
+  const days = 30;
+  const labels = [], dailyCounts = [], cumulative = [];
+  let total = allUsers.filter(u => {
+    const d = new Date(u.created_at);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    return d < cutoff;
+  }).length;
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString('en', { month: 'short', day: 'numeric' }));
+    const cnt = allUsers.filter(u => new Date(u.created_at).toDateString() === d.toDateString()).length;
+    dailyCounts.push(cnt);
+    total += cnt;
+    cumulative.push(total);
+  }
+  const opts = (color) => ({ responsive: true, plugins: { legend: { display: false } }, scales: {
+    x: { grid: { display: false }, ticks: { maxTicksLimit: 7, font: { size: 11 } } },
+    y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#F1F5F9' } }
+  }});
+
+  destroyChart('daily');
+  charts.daily = new Chart(document.getElementById('chart-daily'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Signups', data: dailyCounts, backgroundColor: '#BFDBFE', borderRadius: 4 }] },
+    options: opts('#3B82F6')
+  });
+
+  const confirmed   = allUsers.filter(u => u.email_confirmed_at).length;
+  const unconfirmed = allUsers.length - confirmed;
+  destroyChart('confirm');
+  charts.confirm = new Chart(document.getElementById('chart-confirm'), {
+    type: 'doughnut',
+    data: { labels: ['Confirmed','Unconfirmed'], datasets: [{ data: [confirmed, unconfirmed], backgroundColor: ['#10B981','#E2E8F0'], borderWidth: 0 }] },
+    options: { responsive: true, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+
+  destroyChart('cumulative');
+  charts.cumulative = new Chart(document.getElementById('chart-cumulative'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Total users', data: cumulative, borderColor: '#1E40AF', backgroundColor: 'rgba(30,64,175,0.06)', fill: true, tension: 0.4, pointRadius: 2 }] },
+    options: opts('#1E40AF')
+  });
+}
+
+// ── Tables ────────────────────────────────────────────────────────────
+function avatarHtml(email) {
+  const letter = email ? email[0].toUpperCase() : '?';
+  const colors = ['bg-blue-100 text-blue-700','bg-emerald-100 text-emerald-700','bg-amber-100 text-amber-700','bg-purple-100 text-purple-700','bg-pink-100 text-pink-700'];
+  const color  = colors[letter.charCodeAt(0) % colors.length];
+  return `<div class="w-8 h-8 rounded-full ${color} flex items-center justify-center text-xs font-bold flex-shrink-0">${letter}</div>`;
+}
+
+function statusBadge(user) {
+  return user.email_confirmed_at
+    ? `<span class="badge bg-emerald-50 text-emerald-700">Confirmed</span>`
+    : `<span class="badge bg-amber-50 text-amber-700">Pending</span>`;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+function fmtRelative(d) {
+  if (!d) return '—';
+  const diff = Date.now() - new Date(d);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return fmtDate(d);
+}
+
+function renderRecentUsers() {
+  const recent = [...allUsers].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+  document.getElementById('recent-users-body').innerHTML = recent.length ? recent.map(u => `
+    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${u.id}')">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          ${avatarHtml(u.email)}
+          <div>
+            <p class="font-medium text-slate-800 text-sm">${u.email}</p>
+            <p class="text-xs text-slate-400 font-mono">${u.id.slice(0,8)}…</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-5 py-3 hidden sm:table-cell">
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+      </td>
+      <td class="px-5 py-3 hidden md:table-cell text-slate-500 text-xs">${fmtRelative(u.created_at)}</td>
+      <td class="px-5 py-3">${statusBadge(u)}</td>
+    </tr>`).join('')
+  : `<tr><td colspan="4" class="px-5 py-8 text-center text-slate-400">No users yet</td></tr>`;
+}
+
+function filterUsers() {
+  const q      = (document.getElementById('user-search')?.value || '').toLowerCase();
+  const status = document.getElementById('status-filter')?.value || 'all';
+  const sort   = document.getElementById('sort-filter')?.value || 'newest';
+
+  filteredUsers = allUsers.filter(u => {
+    const matchQ = !q || u.email?.toLowerCase().includes(q) || u.id?.includes(q);
+    const matchS = status === 'all'
+      || (status === 'confirmed' && u.email_confirmed_at)
+      || (status === 'unconfirmed' && !u.email_confirmed_at);
+    return matchQ && matchS;
+  });
+
+  if (sort === 'newest') filteredUsers.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  else if (sort === 'oldest') filteredUsers.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  else filteredUsers.sort((a,b) => (a.email||'').localeCompare(b.email||''));
+
+  currentPage = 0;
+  renderUsersPage();
+}
+
+function renderUsersPage() {
+  const start = currentPage * PAGE_SIZE;
+  const page  = filteredUsers.slice(start, start + PAGE_SIZE);
+  const total = filteredUsers.length;
+  document.getElementById('pagination-info').textContent =
+    `${total === 0 ? 0 : start + 1}–${Math.min(start + PAGE_SIZE, total)} of ${total} users`;
+  document.getElementById('prev-btn').disabled = currentPage === 0;
+  document.getElementById('next-btn').disabled = start + PAGE_SIZE >= total;
+
+  document.getElementById('users-table-body').innerHTML = page.length ? page.map(u => `
+    <tr class="border-t border-slate-50 cursor-pointer" onclick="openUserModal('${u.id}')">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          ${avatarHtml(u.email)}
+          <div>
+            <p class="font-medium text-slate-800 text-sm">${u.email}</p>
+            <p class="text-xs text-slate-400 font-mono">${u.id.slice(0,8)}…</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-5 py-3 hidden sm:table-cell">
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+      </td>
+      <td class="px-5 py-3 hidden md:table-cell text-slate-500 text-xs">${fmtRelative(u.last_sign_in_at)}</td>
+      <td class="px-5 py-3 hidden lg:table-cell text-slate-500 text-xs">${fmtDate(u.created_at)}</td>
+      <td class="px-5 py-3">${statusBadge(u)}</td>
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          <button onclick="event.stopPropagation(); openUserModal('${u.id}')"
+            class="text-xs text-blue-600 hover:underline cursor-pointer">View</button>
+          <button onclick="event.stopPropagation(); openEditModal('${u.id}')"
+            class="text-xs text-slate-500 hover:text-blue-600 hover:underline cursor-pointer">Edit</button>
+        </div>
+      </td>
+    </tr>`).join('')
+  : `<tr><td colspan="6" class="px-5 py-10 text-center text-slate-400">No users match your filters</td></tr>`;
+}
+
+function changePage(dir) {
+  currentPage += dir;
+  renderUsersPage();
+}
+
+function renderSessionsTable() {
+  const active = [...allUsers]
+    .filter(u => u.last_sign_in_at)
+    .sort((a,b) => new Date(b.last_sign_in_at) - new Date(a.last_sign_in_at))
+    .slice(0, 20);
+  document.getElementById('sessions-body').innerHTML = active.length ? active.map(u => `
+    <tr class="border-t border-slate-50">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          ${avatarHtml(u.email)}
+          <span class="text-sm text-slate-700">${u.email}</span>
+        </div>
+      </td>
+      <td class="px-5 py-3 hidden sm:table-cell">
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+      </td>
+      <td class="px-5 py-3 text-sm text-slate-500">${fmtRelative(u.last_sign_in_at)}</td>
+    </tr>`).join('')
+  : `<tr><td colspan="3" class="px-5 py-10 text-center text-slate-400">No sessions found</td></tr>`;
+}
+
+// ── User modal ────────────────────────────────────────────────────────
+function openUserModal(id) {
+  const u = allUsers.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('user-modal-body').innerHTML = `
+    <div class="flex items-center gap-4 mb-5">
+      ${avatarHtml(u.email).replace('w-8 h-8', 'w-14 h-14 text-xl')}
+      <div>
+        <p class="font-bold text-slate-800">${u.email}</p>
+        <p class="text-xs text-slate-400 font-mono mt-0.5">${u.id}</p>
+      </div>
+    </div>
+    <div class="space-y-2 text-sm">
+      <div class="flex justify-between py-2 border-b border-slate-50">
+        <span class="text-slate-500">Status</span>${statusBadge(u)}
+      </div>
+      <div class="flex justify-between py-2 border-b border-slate-50">
+        <span class="text-slate-500">Provider</span>
+        <span class="badge bg-slate-100 text-slate-600 capitalize">${u.app_metadata?.provider || 'email'}</span>
+      </div>
+      <div class="flex justify-between py-2 border-b border-slate-50">
+        <span class="text-slate-500">Created</span>
+        <span class="text-slate-700">${fmtDate(u.created_at)}</span>
+      </div>
+      <div class="flex justify-between py-2 border-b border-slate-50">
+        <span class="text-slate-500">Last sign in</span>
+        <span class="text-slate-700">${fmtDate(u.last_sign_in_at)}</span>
+      </div>
+      <div class="flex justify-between py-2">
+        <span class="text-slate-500">Confirmed at</span>
+        <span class="text-slate-700">${fmtDate(u.email_confirmed_at)}</span>
+      </div>
+    </div>`;
+  document.getElementById('modal-delete-btn').onclick = () => deleteUser(u.id, u.email);
+  document.getElementById('modal-edit-btn').onclick   = () => { closeUserModal(); openEditModal(u.id); };
+  document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').classList.add('hidden');
+}
+
+// ── Delete user ───────────────────────────────────────────────────────
+async function deleteUser(id, email) {
+  if (!confirm(`Delete user ${email}?\nThis action cannot be undone.`)) return;
+  const res = await fetch(`${SUPA_URL}/auth/v1/admin/users/${id}`, {
+    method: 'DELETE',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+  });
+  if (res.ok) {
+    allUsers = allUsers.filter(u => u.id !== id);
+    closeUserModal();
+    filterUsers();
+    renderRecentUsers();
+    showToast('User deleted successfully');
+  } else {
+    showToast('Failed to delete user', true);
+  }
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────
+function exportCSV() {
+  const rows = [['ID','Email','Provider','Status','Created','Last Sign In']];
+  filteredUsers.forEach(u => rows.push([
+    u.id, u.email,
+    u.app_metadata?.provider || 'email',
+    u.email_confirmed_at ? 'confirmed' : 'pending',
+    u.created_at, u.last_sign_in_at || ''
+  ]));
+  const csv  = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flowdesk-users.csv' });
+  a.click();
+  showToast(`${filteredUsers.length} users exported`);
+}
+
+// ── Global search ─────────────────────────────────────────────────────
+function globalSearch(q) {
+  if (!q) return;
+  showSection('users');
+  document.getElementById('user-search').value = q;
+  filterUsers();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, error = false) {
+  const el   = document.getElementById('toast');
+  const icon = document.getElementById('toast-icon');
+  document.getElementById('toast-msg').textContent = msg;
+  icon.className = `w-4 h-4 flex-shrink-0 ${error ? 'text-red-400' : 'text-emerald-400'}`;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
+// ── Edit user modal ───────────────────────────────────────────────────
+let editConfirmed = false;
+
+function openEditModal(id) {
+  const u = allUsers.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('edit-user-id').value    = u.id;
+  document.getElementById('edit-email').value      = u.email;
+  document.getElementById('edit-password').value   = '';
+  document.getElementById('edit-modal-sub').textContent = u.email;
+  document.getElementById('edit-email-err').classList.add('hidden');
+  document.getElementById('edit-pass-err').classList.add('hidden');
+  document.getElementById('edit-api-err').classList.add('hidden');
+  editConfirmed = !!u.email_confirmed_at;
+  updateEditConfirmToggle();
+  document.getElementById('edit-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('edit-email').focus(), 50);
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.add('hidden');
+}
+
+function toggleEditConfirm() {
+  editConfirmed = !editConfirmed;
+  updateEditConfirmToggle();
+}
+
+function updateEditConfirmToggle() {
+  const btn   = document.getElementById('edit-confirm-toggle');
+  const thumb = document.getElementById('edit-confirm-thumb');
+  if (editConfirmed) {
+    btn.style.background = '#2563EB';
+    thumb.style.left = ''; thumb.style.right = '2px';
+  } else {
+    btn.style.background = '#E2E8F0';
+    thumb.style.right = ''; thumb.style.left = '2px';
+  }
+}
+
+function generateEditPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
+  document.getElementById('edit-password').value =
+    Array.from({ length: 14 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+async function submitEditUser(e) {
+  e.preventDefault();
+  const id    = document.getElementById('edit-user-id').value;
+  const email = document.getElementById('edit-email').value.trim();
+  const pass  = document.getElementById('edit-password').value;
+  const emailErr = document.getElementById('edit-email-err');
+  const passErr  = document.getElementById('edit-pass-err');
+  const apiErr   = document.getElementById('edit-api-err');
+  const btn      = document.getElementById('edit-btn');
+  emailErr.classList.add('hidden');
+  passErr.classList.add('hidden');
+  apiErr.classList.add('hidden');
+
+  let valid = true;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { emailErr.classList.remove('hidden'); valid = false; }
+  if (pass && pass.length < 6) { passErr.classList.remove('hidden'); valid = false; }
+  if (!valid) return;
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const body = { email, email_confirm: editConfirmed };
+  if (pass) body.password = pass;
+
+  const res  = await fetch(`${SUPA_URL}/auth/v1/admin/users/${id}`, {
+    method: 'PUT',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  btn.disabled = false; btn.textContent = 'Save changes';
+
+  if (!res.ok) {
+    apiErr.textContent = data.msg || data.message || 'Failed to update user.';
+    apiErr.classList.remove('hidden');
+    return;
+  }
+
+  // Update local state
+  const idx = allUsers.findIndex(u => u.id === id);
+  if (idx !== -1) allUsers[idx] = { ...allUsers[idx], ...data };
+  filterUsers();
+  renderRecentUsers();
+  closeEditModal();
+  showToast(`User ${email} updated`);
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+// ── Create user modal ─────────────────────────────────────────────────
+let autoConfirm = true;
+
+function openCreateModal() {
+  document.getElementById('create-email').value    = '';
+  document.getElementById('create-password').value = '';
+  document.getElementById('create-email-err').classList.add('hidden');
+  document.getElementById('create-pass-err').classList.add('hidden');
+  document.getElementById('create-api-err').classList.add('hidden');
+  autoConfirm = true;
+  updateConfirmToggle();
+  document.getElementById('create-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('create-email').focus(), 50);
+}
+
+function closeCreateModal() {
+  document.getElementById('create-modal').classList.add('hidden');
+}
+
+function toggleConfirm() {
+  autoConfirm = !autoConfirm;
+  updateConfirmToggle();
+}
+
+function updateConfirmToggle() {
+  const btn   = document.getElementById('confirm-toggle');
+  const thumb = document.getElementById('confirm-thumb');
+  if (autoConfirm) {
+    btn.classList.replace('bg-slate-200', 'bg-blue-600');
+    thumb.classList.replace('left-0.5', 'right-0.5');
+    thumb.style.left = ''; thumb.style.right = '2px';
+  } else {
+    btn.classList.replace('bg-blue-600', 'bg-slate-200');
+    thumb.style.right = ''; thumb.style.left = '2px';
+  }
+}
+
+function generatePassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
+  const pwd   = Array.from({ length: 14 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  document.getElementById('create-password').value = pwd;
+}
+
+function copyPassword() {
+  const val = document.getElementById('create-password').value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => showToast('Password copied'));
+}
+
+async function createUser(e) {
+  e.preventDefault();
+  const email = document.getElementById('create-email').value.trim();
+  const pass  = document.getElementById('create-password').value;
+  const emailErr = document.getElementById('create-email-err');
+  const passErr  = document.getElementById('create-pass-err');
+  const apiErr   = document.getElementById('create-api-err');
+  const btn      = document.getElementById('create-btn');
+  emailErr.classList.add('hidden');
+  passErr.classList.add('hidden');
+  apiErr.classList.add('hidden');
+
+  let valid = true;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { emailErr.classList.remove('hidden'); valid = false; }
+  if (!pass || pass.length < 6) { passErr.classList.remove('hidden'); valid = false; }
+  if (!valid) return;
+
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  const body = { email, password: pass, email_confirm: autoConfirm };
+  const res  = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  btn.disabled = false; btn.textContent = 'Create user';
+
+  if (!res.ok) {
+    apiErr.textContent = data.msg || data.message || 'Failed to create user.';
+    apiErr.classList.remove('hidden');
+    return;
+  }
+
+  allUsers.unshift(data);
+  filterUsers();
+  renderRecentUsers();
+  document.getElementById('kpi-total').textContent = allUsers.length;
+  document.getElementById('users-badge').textContent = allUsers.length;
+  closeCreateModal();
+  showToast(`User ${email} created`);
+}
+
+// Close create modal on backdrop click
+document.getElementById('create-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateModal();
+});
+
+// ── Spin keyframes ────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowDesk — Your productivity, reimagined</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    /* Glassmorphism base */
+    .glass {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+    .glass-dark {
+      background: rgba(13, 148, 136, 0.12);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(20, 184, 166, 0.25);
+    }
+
+    /* Gradient mesh background */
+    .bg-mesh {
+      background-color: #F0FDFA;
+      background-image:
+        radial-gradient(at 20% 20%, rgba(13, 148, 136, 0.18) 0px, transparent 55%),
+        radial-gradient(at 80% 10%, rgba(20, 184, 166, 0.15) 0px, transparent 50%),
+        radial-gradient(at 60% 80%, rgba(249, 115, 22, 0.08) 0px, transparent 45%),
+        radial-gradient(at 5%  85%, rgba(13, 148, 136, 0.12) 0px, transparent 40%);
+    }
+
+    /* Smooth transitions */
+    .transition-smooth { transition: all 220ms ease-out; }
+
+    /* Modal */
+    #signin-modal { display: none; }
+    #signin-modal.open { display: flex; }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Fade-up animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.55s ease-out both; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+  </style>
+</head>
+<body class="bg-mesh min-h-screen text-[#134E4A] antialiased">
+
+  <!-- ─── NAVBAR ─── -->
+  <header class="fixed top-4 left-4 right-4 z-50">
+    <nav class="glass rounded-2xl px-6 py-3 flex items-center justify-between max-w-6xl mx-auto shadow-sm">
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-2 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span class="font-700 text-[#134E4A] text-lg font-bold tracking-tight">FlowDesk</span>
+      </a>
+
+      <!-- Nav links (hidden on mobile) -->
+      <ul class="hidden md:flex items-center gap-7 text-sm font-medium text-[#134E4A]/75">
+        <li><a href="#features" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Features</a></li>
+        <li><a href="#pricing" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Pricing</a></li>
+        <li><a href="#" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Blog</a></li>
+      </ul>
+
+      <!-- CTAs -->
+      <div class="flex items-center gap-3">
+        <button id="nav-signin" onclick="openModal()" class="hidden sm:inline text-sm font-medium text-[#134E4A]/80 hover:text-[#0D9488] transition-smooth cursor-pointer">Sign in</button>
+        <a href="#" class="bg-[#F97316] hover:bg-[#ea6c0d] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-smooth cursor-pointer shadow-sm">
+          Get started free
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ─── HERO ─── -->
+  <section class="pt-36 pb-24 px-4 sm:px-6 lg:px-8 text-center">
+    <div class="max-w-4xl mx-auto">
+
+      <!-- Badge -->
+      <div class="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-sm font-medium text-[#0D9488] mb-8 fade-up shadow-sm">
+        <span class="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse"></span>
+        Now in public beta — free forever plan available
+      </div>
+
+      <!-- Headline -->
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#134E4A] leading-[1.1] mb-6 fade-up delay-1">
+        Your team's productivity,<br />
+        <span class="text-[#0D9488]">beautifully streamlined</span>
+      </h1>
+
+      <!-- Sub-headline -->
+      <p class="text-lg sm:text-xl text-[#475569] max-w-2xl mx-auto leading-relaxed mb-10 fade-up delay-2">
+        FlowDesk brings tasks, docs, and team chats into one calm, focused workspace — so you ship faster and stress less.
+      </p>
+
+      <!-- CTA buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 fade-up delay-3">
+        <a href="#" class="w-full sm:w-auto bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer shadow-md text-base">
+          Start for free — no card needed
+        </a>
+        <a href="#" class="w-full sm:w-auto glass hover:shadow-md text-[#134E4A] font-semibold px-8 py-3.5 rounded-xl transition-smooth cursor-pointer text-base flex items-center justify-center gap-2">
+          <svg class="w-5 h-5 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="10 8 16 12 10 16 10 8"/>
+          </svg>
+          Watch 2-min demo
+        </a>
+      </div>
+
+      <!-- Hero dashboard mockup -->
+      <div class="fade-up delay-4 max-w-5xl mx-auto">
+        <div class="glass rounded-3xl p-2 shadow-2xl shadow-teal-200/40">
+          <!-- Fake browser chrome -->
+          <div class="glass rounded-2xl overflow-hidden">
+            <div class="bg-[#f8fffe] border-b border-gray-100 px-4 py-3 flex items-center gap-2">
+              <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div class="w-3 h-3 rounded-full bg-green-400"></div>
+              </div>
+              <div class="flex-1 bg-white rounded-lg px-3 py-1 text-xs text-gray-400 ml-3 max-w-xs">
+                app.flowdesk.io/dashboard
+              </div>
+            </div>
+            <!-- Dashboard content -->
+            <div class="bg-gradient-to-br from-[#F0FDFA] to-[#CCFBF1] p-6 grid grid-cols-3 gap-4 min-h-[260px]">
+              <!-- Stat cards -->
+              <div class="glass rounded-2xl p-4 col-span-1">
+                <p class="text-xs text-[#475569] font-medium mb-1">Tasks done today</p>
+                <p class="text-3xl font-bold text-[#0D9488]">24</p>
+                <p class="text-xs text-emerald-500 font-medium mt-1">↑ 8 from yesterday</p>
+              </div>
+              <div class="glass rounded-2xl p-4 col-span-1">
+                <p class="text-xs text-[#475569] font-medium mb-1">Team velocity</p>
+                <p class="text-3xl font-bold text-[#134E4A]">94<span class="text-base font-medium">%</span></p>
+                <p class="text-xs text-emerald-500 font-medium mt-1">↑ on track</p>
+              </div>
+              <div class="glass rounded-2xl p-4 col-span-1">
+                <p class="text-xs text-[#475569] font-medium mb-1">Active projects</p>
+                <p class="text-3xl font-bold text-[#F97316]">7</p>
+                <p class="text-xs text-[#475569] font-medium mt-1">2 due this week</p>
+              </div>
+              <!-- Task list preview -->
+              <div class="glass rounded-2xl p-4 col-span-2">
+                <p class="text-xs font-semibold text-[#134E4A] mb-3">Today's focus</p>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-[#0D9488] flex items-center justify-center flex-shrink-0">
+                      <svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="text-xs text-[#475569] line-through">Review Q2 roadmap</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded border-2 border-[#0D9488] flex-shrink-0"></div>
+                    <span class="text-xs text-[#134E4A] font-medium">Design system audit</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0"></div>
+                    <span class="text-xs text-[#475569]">Stakeholder sync — 3pm</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0"></div>
+                    <span class="text-xs text-[#475569]">Ship onboarding v2</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Mini chart -->
+              <div class="glass rounded-2xl p-4 col-span-1 flex flex-col justify-between">
+                <p class="text-xs font-semibold text-[#134E4A]">Weekly output</p>
+                <div class="flex items-end gap-1 mt-2 h-16">
+                  <div class="flex-1 bg-teal-200 rounded-t" style="height:45%"></div>
+                  <div class="flex-1 bg-teal-300 rounded-t" style="height:60%"></div>
+                  <div class="flex-1 bg-[#0D9488] rounded-t" style="height:80%"></div>
+                  <div class="flex-1 bg-teal-200 rounded-t" style="height:50%"></div>
+                  <div class="flex-1 bg-[#F97316] rounded-t" style="height:95%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social proof -->
+      <p class="mt-8 text-sm text-[#475569] fade-up">
+        Trusted by <span class="font-semibold text-[#0D9488]">3,400+</span> teams at Stripe, Linear, Notion, and beyond
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── FEATURES ─── -->
+  <section id="features" class="py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+
+      <div class="text-center mb-16">
+        <p class="text-sm font-semibold text-[#0D9488] uppercase tracking-widest mb-3">Why FlowDesk</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-[#134E4A] tracking-tight leading-tight">
+          Everything your team needs,<br class="hidden sm:block" /> nothing it doesn't
+        </h2>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Feature 1 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-5 group-hover:bg-[#0D9488]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">Unified workspace</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">Tasks, docs, and conversations live side-by-side. No more tab soup or context switches.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#F97316]/10 flex items-center justify-center mb-5 group-hover:bg-[#F97316]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#F97316]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">Real-time analytics</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">See team velocity, blockers, and shipping trends at a glance — updated live, no setup required.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-5 group-hover:bg-[#0D9488]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">Smart collaboration</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">Assign, comment, and review without leaving your flow. Notifications that actually matter.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#14B8A6]/10 flex items-center justify-center mb-5 group-hover:bg-[#14B8A6]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#14B8A6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">AI-powered summaries</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">Catch up on missed threads and long docs in seconds. FlowDesk AI surfaces what matters most.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#F97316]/10 flex items-center justify-center mb-5 group-hover:bg-[#F97316]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#F97316]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">Beautiful on any screen</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">Fully responsive from 375px to 4K. Native mobile apps for iOS and Android coming Q3.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg hover:shadow-teal-100 transition-smooth cursor-default group">
+          <div class="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-5 group-hover:bg-[#0D9488]/20 transition-smooth">
+            <svg class="w-6 h-6 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3 class="text-[#134E4A] font-bold text-lg mb-2">SOC 2 compliant</h3>
+          <p class="text-[#475569] text-sm leading-relaxed">Enterprise-grade security baked in. SSO, audit logs, and role-based access out of the box.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRICING ─── -->
+  <section id="pricing" class="py-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto text-center">
+      <p class="text-sm font-semibold text-[#0D9488] uppercase tracking-widest mb-3">Pricing</p>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-[#134E4A] tracking-tight mb-14">Simple, honest pricing</h2>
+
+      <div class="grid md:grid-cols-3 gap-6 items-start">
+
+        <!-- Free -->
+        <div class="glass rounded-3xl p-8 text-left">
+          <p class="text-sm font-semibold text-[#475569] mb-1">Free</p>
+          <p class="text-4xl font-extrabold text-[#134E4A] mb-1">$0</p>
+          <p class="text-xs text-[#475569] mb-6">Forever free, up to 3 users</p>
+          <a href="#" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
+            Get started
+          </a>
+          <ul class="space-y-2 text-sm text-[#475569]">
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 5 active projects</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Basic analytics</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 1 GB storage</li>
+          </ul>
+        </div>
+
+        <!-- Pro (highlighted) -->
+        <div class="glass-dark rounded-3xl p-8 text-left relative shadow-xl shadow-teal-200/30 border-[#0D9488]/40">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span class="bg-[#F97316] text-white text-xs font-bold px-3 py-1 rounded-full shadow">Most popular</span>
+          </div>
+          <p class="text-sm font-semibold text-[#0D9488] mb-1">Pro</p>
+          <p class="text-4xl font-extrabold text-[#134E4A] mb-1">$12<span class="text-base font-medium text-[#475569]">/mo</span></p>
+          <p class="text-xs text-[#475569] mb-6">Per user, billed annually</p>
+          <a href="#" class="block text-center bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold py-2.5 rounded-xl transition-smooth cursor-pointer text-sm mb-6 shadow-sm">
+            Start free trial
+          </a>
+          <ul class="space-y-2 text-sm text-[#475569]">
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Unlimited projects</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> AI summaries</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Advanced analytics</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 50 GB storage</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
+          </ul>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="glass rounded-3xl p-8 text-left">
+          <p class="text-sm font-semibold text-[#475569] mb-1">Enterprise</p>
+          <p class="text-4xl font-extrabold text-[#134E4A] mb-1">Custom</p>
+          <p class="text-xs text-[#475569] mb-6">For large teams & orgs</p>
+          <a href="#" class="block text-center border-2 border-[#0D9488] text-[#0D9488] font-semibold py-2.5 rounded-xl hover:bg-[#0D9488]/5 transition-smooth cursor-pointer text-sm mb-6">
+            Contact sales
+          </a>
+          <ul class="space-y-2 text-sm text-[#475569]">
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Everything in Pro</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> SSO / SAML</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> SOC 2 reports</li>
+            <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0D9488] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> SLA guarantee</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA BANNER ─── -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+      <div class="glass rounded-3xl px-8 py-14 text-center shadow-xl shadow-teal-100/40"
+           style="background: linear-gradient(135deg, rgba(13,148,136,0.12) 0%, rgba(20,184,166,0.08) 100%);">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-[#134E4A] mb-4 tracking-tight">
+          Ready to find your flow?
+        </h2>
+        <p class="text-[#475569] text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+          Join thousands of teams that ship faster and collaborate better with FlowDesk.
+        </p>
+        <a href="#" class="inline-block bg-[#F97316] hover:bg-[#ea6c0d] text-white font-bold px-10 py-4 rounded-2xl transition-smooth cursor-pointer shadow-lg text-base">
+          Get started for free
+        </a>
+        <p class="mt-4 text-xs text-[#475569]">No credit card required · Cancel anytime</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="py-12 px-4 sm:px-6 lg:px-8 border-t border-teal-100/60">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#475569]">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md bg-[#0D9488] flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-[#134E4A]">FlowDesk</span>
+        <span class="text-[#475569]/60">© 2026</span>
+      </div>
+      <nav class="flex gap-6" aria-label="Footer navigation">
+        <a href="#" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Privacy</a>
+        <a href="#" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Terms</a>
+        <a href="#" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Status</a>
+        <a href="#" class="hover:text-[#0D9488] transition-smooth cursor-pointer">Twitter</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- ─── SIGN IN MODAL ─── -->
+  <div id="signin-modal" class="fixed inset-0 z-[100] items-center justify-center p-4"
+       style="background: rgba(13,78,74,0.35); backdrop-filter: blur(6px);">
+    <div class="glass rounded-3xl w-full max-w-md p-8 shadow-2xl shadow-teal-200/40 relative">
+
+      <!-- Close -->
+      <button onclick="document.getElementById('signin-modal').classList.remove('open')"
+              class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-smooth cursor-pointer"
+              aria-label="Close modal">
+        <svg class="w-4 h-4 text-[#475569]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2 mb-6">
+        <div class="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span class="font-bold text-[#134E4A] text-lg">FlowDesk</span>
+      </div>
+
+      <h2 id="modal-title" class="text-2xl font-extrabold text-[#134E4A] mb-1">Welcome back</h2>
+      <p id="modal-subtitle" class="text-sm text-[#475569] mb-6">Sign in to your account</p>
+
+      <div id="modal-body">
+      <form onsubmit="handleSignIn(event)" novalidate>
+        <!-- Email -->
+        <div class="mb-4">
+          <label for="email" class="block text-sm font-medium text-[#134E4A] mb-1.5">Email</label>
+          <input id="email" type="email" autocomplete="email" placeholder="you@company.com"
+                 class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/80 text-[#134E4A] text-sm placeholder-gray-400
+                        focus:outline-none focus:ring-2 focus:ring-[#0D9488]/40 focus:border-[#0D9488] transition-smooth" />
+          <p id="email-error" class="hidden mt-1 text-xs text-red-500">Veuillez entrer un email valide.</p>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="password" class="block text-sm font-medium text-[#134E4A]">Password</label>
+            <a href="#" class="text-xs text-[#0D9488] hover:underline cursor-pointer">Forgot password?</a>
+          </div>
+          <div class="relative">
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••••••"
+                   class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/80 text-[#134E4A] text-sm placeholder-gray-400
+                          focus:outline-none focus:ring-2 focus:ring-[#0D9488]/40 focus:border-[#0D9488] transition-smooth pr-11" />
+            <button type="button" onclick="togglePassword()" tabindex="-1"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0D9488] transition-smooth cursor-pointer"
+                    aria-label="Show/hide password">
+              <svg id="eye-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p id="password-error" class="hidden mt-1 text-xs text-red-500">Le mot de passe est requis.</p>
+        </div>
+
+        <!-- Auth error global -->
+        <p id="auth-error" class="hidden mb-3 text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2"></p>
+
+        <!-- Submit -->
+        <button type="submit" id="submit-btn"
+                class="w-full bg-[#F97316] hover:bg-[#ea6c0d] text-white font-semibold py-3 rounded-xl transition-smooth cursor-pointer text-sm shadow-sm">
+          Sign in
+        </button>
+      </form>
+      </div>
+
+      <p id="mode-toggle" class="text-center text-sm text-[#475569] mt-5">
+        No account?
+        <a href="#" onclick="setMode(true)" class="text-[#0D9488] font-semibold hover:underline cursor-pointer">Sign up free</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // ── Supabase client ──────────────────────────────────────────────
+    const { createClient } = supabase;
+    const _supabase = createClient(
+      'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com',
+      'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoiYW5vbiJ9.uDWcW4l6DFY9JxJ9cD-MfpKEu_zSNg0EkmhIxnxmxi4'
+    );
+
+    // ── Modal helpers ────────────────────────────────────────────────
+    function openModal()  { document.getElementById('signin-modal').classList.add('open'); }
+    function closeModal() { document.getElementById('signin-modal').classList.remove('open'); }
+
+    // ── Mode toggle (sign in / sign up) ──────────────────────────────
+    let isSignUp = false;
+    function setMode(signup) {
+      isSignUp = signup;
+      document.getElementById('modal-title').textContent    = signup ? 'Create your account' : 'Welcome back';
+      document.getElementById('modal-subtitle').textContent = signup ? 'Start for free today' : 'Sign in to your account';
+      document.getElementById('submit-btn').textContent     = signup ? 'Create account' : 'Sign in';
+      document.getElementById('mode-toggle').innerHTML      = signup
+        ? 'Already have an account? <a href="#" onclick="setMode(false)" class="text-[#0D9488] font-semibold hover:underline cursor-pointer">Sign in</a>'
+        : 'No account? <a href="#" onclick="setMode(true)" class="text-[#0D9488] font-semibold hover:underline cursor-pointer">Sign up free</a>';
+      clearErrors();
+    }
+
+    // ── Show/hide password ───────────────────────────────────────────
+    function togglePassword() {
+      const input = document.getElementById('password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    // ── Error helpers ────────────────────────────────────────────────
+    function clearErrors() {
+      ['email-error', 'password-error', 'auth-error'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById(id).textContent = '';
+      });
+    }
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // ── Session state — update navbar ────────────────────────────────
+    function updateNavbar(user) {
+      const navBtn = document.getElementById('nav-signin');
+      if (user) {
+        navBtn.textContent = user.email.split('@')[0];
+        navBtn.onclick = async () => { await _supabase.auth.signOut(); updateNavbar(null); };
+      } else {
+        navBtn.textContent = 'Sign in';
+        navBtn.onclick = openModal;
+      }
+    }
+
+    // ── On load: check existing session ─────────────────────────────
+    _supabase.auth.getSession().then(({ data: { session } }) => {
+      updateNavbar(session?.user ?? null);
+    });
+    _supabase.auth.onAuthStateChange((_event, session) => {
+      updateNavbar(session?.user ?? null);
+    });
+
+    // ── Form submit ──────────────────────────────────────────────────
+    async function handleSignIn(e) {
+      e.preventDefault();
+      clearErrors();
+
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('submit-btn');
+
+      let valid = true;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showError('email-error', 'Veuillez entrer un email valide.'); valid = false;
+      }
+      if (!password) {
+        showError('password-error', 'Le mot de passe est requis.'); valid = false;
+      }
+      if (!valid) return;
+
+      btn.disabled = true;
+      btn.textContent = isSignUp ? 'Creating account…' : 'Signing in…';
+
+      const { data, error } = isSignUp
+        ? await _supabase.auth.signUp({ email, password })
+        : await _supabase.auth.signInWithPassword({ email, password });
+
+      btn.disabled = false;
+      btn.textContent = isSignUp ? 'Create account' : 'Sign in';
+
+      if (error) {
+        showError('auth-error', error.message);
+        return;
+      }
+
+      if (isSignUp && !data.session) {
+        // Email confirmation required
+        document.getElementById('modal-body').innerHTML = `
+          <div class="text-center py-6">
+            <div class="w-14 h-14 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
+              <svg class="w-7 h-7 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-[#134E4A] mb-2">Vérifie tes emails</h3>
+            <p class="text-sm text-[#475569]">Un lien de confirmation a été envoyé à <strong>${email}</strong>.</p>
+          </div>`;
+        return;
+      }
+
+      closeModal();
+    }
+
+    // ── Close on backdrop click ──────────────────────────────────────
+    document.getElementById('signin-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+
+</body>
+</html>
