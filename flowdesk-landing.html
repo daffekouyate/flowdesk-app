@@ -88,19 +88,22 @@
 
       <!-- CTAs -->
       <div class="flex items-center gap-3">
-        <!-- Logged-out: Sign in button -->
-        <button id="nav-signin" onclick="openModal()" class="hidden sm:inline text-sm font-medium text-[#134E4A]/80 hover:text-[#0D9488] transition-smooth cursor-pointer">Sign in</button>
+        <!-- Sign in (logged-out) -->
+        <button id="nav-signin" onclick="openModal()"
+          style="display:none"
+          class="text-sm font-medium text-[#134E4A]/80 hover:text-[#0D9488] transition-smooth cursor-pointer">
+          Sign in
+        </button>
 
-        <!-- Logged-in: user menu -->
-        <div id="nav-user-menu" class="hidden sm:relative">
+        <!-- User menu (logged-in) -->
+        <div id="nav-user-menu" style="display:none" class="relative">
           <button onclick="toggleUserMenu()" id="nav-user-btn"
-            class="hidden items-center gap-2 glass px-3 py-1.5 rounded-xl text-sm font-semibold text-[#134E4A] hover:shadow-md transition-smooth cursor-pointer">
+            class="flex items-center gap-2 glass px-3 py-1.5 rounded-xl text-sm font-semibold text-[#134E4A] hover:shadow-md transition-smooth cursor-pointer">
             <div id="nav-user-avatar" class="w-6 h-6 rounded-full bg-[#0D9488] flex items-center justify-center text-white text-xs font-bold">?</div>
             <span id="nav-user-name">User</span>
             <svg class="w-3.5 h-3.5 text-[#475569]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <!-- Dropdown -->
-          <div id="nav-dropdown" class="hidden absolute right-0 top-full mt-2 w-44 glass rounded-2xl shadow-xl overflow-hidden z-50 border border-white/40">
+          <div id="nav-dropdown" style="display:none" class="absolute right-0 top-full mt-2 w-48 glass rounded-2xl shadow-xl overflow-hidden z-50 border border-white/40">
             <a href="dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#134E4A] hover:bg-[#0D9488]/10 transition-smooth cursor-pointer">
               <svg class="w-4 h-4 text-[#0D9488]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
               My Dashboard
@@ -116,6 +119,7 @@
             </button>
           </div>
         </div>
+
         <a href="#" class="bg-[#F97316] hover:bg-[#ea6c0d] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-smooth cursor-pointer shadow-sm">
           Get started free
         </a>
@@ -558,39 +562,35 @@
     function updateNavbar(user) {
       const signinBtn = document.getElementById('nav-signin');
       const userMenu  = document.getElementById('nav-user-menu');
-      const userBtn   = document.getElementById('nav-user-btn');
       const avatar    = document.getElementById('nav-user-avatar');
       const nameEl    = document.getElementById('nav-user-name');
       if (user) {
         const name = user.email.split('@')[0];
-        signinBtn.classList.add('hidden');
-        userMenu.classList.remove('hidden');
-        userBtn.classList.remove('hidden');
-        userBtn.classList.add('flex');
+        signinBtn.style.display  = 'none';
+        userMenu.style.display   = 'block';
         avatar.textContent = name[0].toUpperCase();
         nameEl.textContent = name;
       } else {
-        signinBtn.classList.remove('hidden');
-        userMenu.classList.add('hidden');
-        userBtn.classList.add('hidden');
-        userBtn.classList.remove('flex');
+        signinBtn.style.display = 'inline';
+        userMenu.style.display  = 'none';
       }
     }
 
     function toggleUserMenu() {
-      document.getElementById('nav-dropdown').classList.toggle('hidden');
+      const dd = document.getElementById('nav-dropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
     }
 
     async function signOutFromLanding() {
       await _supabase.auth.signOut();
+      document.getElementById('nav-dropdown').style.display = 'none';
       updateNavbar(null);
-      document.getElementById('nav-dropdown').classList.add('hidden');
     }
 
     document.addEventListener('click', e => {
       const menu = document.getElementById('nav-user-menu');
       if (menu && !menu.contains(e.target))
-        document.getElementById('nav-dropdown').classList.add('hidden');
+        document.getElementById('nav-dropdown').style.display = 'none';
     });
 
     // ── On load: check existing session ─────────────────────────────
