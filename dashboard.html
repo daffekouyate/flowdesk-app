@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowDesk — My Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    :root { --sidebar-w: 220px; }
+
+    body { background: #F8FAFF; }
+
+    /* Sidebar */
+    #sidebar { width: var(--sidebar-w); background: #0F172A; }
+
+    /* Glass card */
+    .glass {
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.5);
+    }
+
+    /* Gradient bg */
+    .bg-mesh {
+      background: #F0FDFA;
+      background-image:
+        radial-gradient(at 10% 20%, rgba(13,148,136,0.15) 0px, transparent 50%),
+        radial-gradient(at 85% 10%, rgba(20,184,166,0.10) 0px, transparent 45%),
+        radial-gradient(at 60% 90%, rgba(249,115,22,0.07) 0px, transparent 40%);
+    }
+
+    .tr { transition: all 200ms ease-out; }
+
+    /* Nav active */
+    .nav-item.active { background: rgba(13,148,136,0.2); color: #5EEAD4; }
+    .nav-item.active svg { color: #0D9488; }
+
+    /* Task checkbox */
+    .task-check { accent-color: #0D9488; width: 16px; height: 16px; cursor: pointer; }
+
+    /* Entrance animation */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up { animation: fadeUp 0.4s ease-out both; }
+    .d1 { animation-delay: .05s; } .d2 { animation-delay: .1s; }
+    .d3 { animation-delay: .15s; } .d4 { animation-delay: .2s; }
+    .d5 { animation-delay: .25s; } .d6 { animation-delay: .3s; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
+
+    /* Progress ring */
+    .ring-track { stroke: #E2E8F0; }
+    .ring-fill { stroke: #0D9488; stroke-linecap: round; transition: stroke-dashoffset 1s ease-out; transform: rotate(-90deg); transform-origin: 50% 50%; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    @media (max-width: 768px) {
+      #sidebar { position: fixed; left: -100%; z-index: 40; top: 0; bottom: 0; transition: left 200ms ease-out; }
+      #sidebar.open { left: 0; }
+      .main-content { margin-left: 0 !important; }
+    }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────────────── -->
+<aside id="sidebar" class="flex flex-col flex-shrink-0 h-full">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-2.5 px-5 py-5 border-b border-white/5">
+    <div class="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <span class="text-white font-bold text-sm">FlowDesk</span>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+    <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mb-2">Workspace</p>
+
+    <button onclick="showTab('overview')" class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-xl tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </button>
+    <button onclick="showTab('tasks')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Tasks
+      <span id="task-badge" class="ml-auto text-xs bg-teal-500/20 text-teal-400 font-semibold px-2 py-0.5 rounded-full">0</span>
+    </button>
+    <button onclick="showTab('projects')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      Projects
+    </button>
+    <button onclick="showTab('notes')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Notes
+    </button>
+
+    <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mt-4 mb-2">Account</p>
+    <button onclick="showTab('profile')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl tr cursor-pointer text-slate-300 hover:bg-white/5 text-sm">
+      <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </button>
+  </nav>
+
+  <!-- User footer -->
+  <div class="px-3 py-4 border-t border-white/5">
+    <div class="flex items-center gap-3 px-2">
+      <div id="sb-avatar" class="w-8 h-8 rounded-full bg-[#0D9488] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">?</div>
+      <div class="flex-1 min-w-0">
+        <p id="sb-name" class="text-white text-xs font-semibold truncate">—</p>
+        <p class="text-slate-400 text-xs">Free plan</p>
+      </div>
+      <button onclick="signOut()" class="text-slate-400 hover:text-red-400 tr cursor-pointer" aria-label="Sign out">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── MAIN ─────────────────────────────────────────────────────────── -->
+<div class="main-content flex-1 flex flex-col min-h-0 overflow-hidden" style="margin-left:0">
+
+  <!-- Topbar -->
+  <header class="bg-white/80 backdrop-blur border-b border-slate-100 px-5 py-3 flex items-center gap-3 flex-shrink-0 sticky top-0 z-30">
+    <button onclick="document.getElementById('sidebar').classList.toggle('open')" class="md:hidden text-slate-400 hover:text-slate-700 tr cursor-pointer">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div>
+      <h1 id="tab-title" class="text-sm font-bold text-slate-800">Overview</h1>
+      <p id="tab-sub" class="text-xs text-slate-400" id="topbar-date"></p>
+    </div>
+    <div class="ml-auto flex items-center gap-3">
+      <a href="flowdesk-landing.html" class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer">← Back to site</a>
+      <div id="topbar-avatar" class="w-8 h-8 rounded-full bg-[#0D9488] flex items-center justify-center text-white text-xs font-bold cursor-pointer">?</div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 overflow-y-auto bg-mesh">
+
+    <!-- ── OVERVIEW TAB ──────────────────────────────────────────── -->
+    <div id="tab-overview" class="p-5 space-y-5">
+
+      <!-- Greeting -->
+      <div class="fade-up d1">
+        <h2 class="text-2xl font-extrabold text-[#134E4A]">Good <span id="greeting-time">morning</span>, <span id="greeting-name">there</span> 👋</h2>
+        <p class="text-sm text-[#475569] mt-0.5" id="greeting-date">Today is —</p>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 fade-up d2">
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-semibold text-[#475569] mb-1">Tasks today</p>
+          <p id="ov-tasks-total" class="text-2xl font-bold text-[#134E4A]">0</p>
+          <p id="ov-tasks-done" class="text-xs text-emerald-500 mt-0.5">0 done</p>
+        </div>
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-semibold text-[#475569] mb-1">Projects</p>
+          <p id="ov-projects" class="text-2xl font-bold text-[#134E4A]">0</p>
+          <p class="text-xs text-[#475569] mt-0.5">active</p>
+        </div>
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-semibold text-[#475569] mb-1">Completion</p>
+          <p id="ov-completion" class="text-2xl font-bold text-[#0D9488]">0%</p>
+          <p class="text-xs text-[#475569] mt-0.5">this week</p>
+        </div>
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-semibold text-[#475569] mb-1">Streak</p>
+          <p class="text-2xl font-bold text-[#F97316]">3</p>
+          <p class="text-xs text-[#475569] mt-0.5">days active</p>
+        </div>
+      </div>
+
+      <!-- Tasks + Progress -->
+      <div class="grid lg:grid-cols-3 gap-4 fade-up d3">
+
+        <!-- Today's tasks -->
+        <div class="lg:col-span-2 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-[#134E4A] text-sm">Today's focus</h3>
+            <button onclick="showTab('tasks')" class="text-xs text-[#0D9488] hover:underline cursor-pointer">View all</button>
+          </div>
+          <div id="ov-task-list" class="space-y-2"></div>
+          <!-- Quick add -->
+          <div class="mt-4 flex gap-2">
+            <input id="ov-task-input" type="text" placeholder="Add a quick task…" onkeydown="if(event.key==='Enter')quickAddTask()"
+              class="flex-1 bg-white/60 border border-white/80 rounded-xl px-3 py-2 text-sm text-[#134E4A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 tr" />
+            <button onclick="quickAddTask()" class="bg-[#0D9488] hover:bg-[#0a7a70] text-white px-4 py-2 rounded-xl text-sm font-semibold tr cursor-pointer">
+              Add
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress ring -->
+        <div class="glass rounded-2xl p-5 flex flex-col items-center justify-center">
+          <h3 class="font-bold text-[#134E4A] text-sm mb-4 self-start">Weekly progress</h3>
+          <div class="relative w-28 h-28">
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <circle class="ring-track" cx="50" cy="50" r="40" fill="none" stroke-width="10"/>
+              <circle id="ring-fill" class="ring-fill" cx="50" cy="50" r="40" fill="none" stroke-width="10"
+                stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="ring-pct" class="text-2xl font-extrabold text-[#0D9488]">0%</span>
+              <span class="text-xs text-[#475569]">done</span>
+            </div>
+          </div>
+          <div class="mt-4 w-full space-y-1.5">
+            <div class="flex justify-between text-xs text-[#475569]">
+              <span>Completed</span><span id="ring-done" class="font-semibold text-[#134E4A]">0</span>
+            </div>
+            <div class="flex justify-between text-xs text-[#475569]">
+              <span>Remaining</span><span id="ring-left" class="font-semibold text-[#134E4A]">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects preview -->
+      <div class="fade-up d4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-[#134E4A] text-sm">Active projects</h3>
+          <button onclick="showTab('projects')" class="text-xs text-[#0D9488] hover:underline cursor-pointer">View all</button>
+        </div>
+        <div id="ov-projects-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- Activity chart -->
+      <div class="glass rounded-2xl p-5 fade-up d5">
+        <h3 class="font-bold text-[#134E4A] text-sm mb-1">Activity — last 7 days</h3>
+        <p class="text-xs text-[#475569] mb-4">Tasks completed per day</p>
+        <canvas id="chart-activity" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- ── TASKS TAB ──────────────────────────────────────────────── -->
+    <div id="tab-tasks" class="hidden p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-[#134E4A]">Tasks</h2>
+          <p class="text-xs text-[#475569] mt-0.5">Manage your to-dos</p>
+        </div>
+        <div class="flex gap-2">
+          <select id="task-filter" onchange="renderTasksTab()" class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none cursor-pointer tr hover:border-[#0D9488]">
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Add task form -->
+      <div class="glass rounded-2xl p-4 mb-4">
+        <div class="flex gap-3 flex-wrap">
+          <input id="task-input" type="text" placeholder="New task description…"
+            onkeydown="if(event.key==='Enter')addTask()"
+            class="flex-1 min-w-48 bg-white/60 border border-white/80 rounded-xl px-3 py-2.5 text-sm text-[#134E4A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 tr" />
+          <select id="task-priority" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs outline-none cursor-pointer tr">
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+          <button onclick="addTask()" class="bg-[#0D9488] hover:bg-[#0a7a70] text-white px-5 py-2.5 rounded-xl text-sm font-semibold tr cursor-pointer">
+            Add task
+          </button>
+        </div>
+      </div>
+
+      <div id="tasks-list" class="space-y-2"></div>
+    </div>
+
+    <!-- ── PROJECTS TAB ───────────────────────────────────────────── -->
+    <div id="tab-projects" class="hidden p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-[#134E4A]">Projects</h2>
+          <p class="text-xs text-[#475569] mt-0.5">Track your ongoing work</p>
+        </div>
+        <button onclick="openProjectModal()" class="flex items-center gap-2 bg-[#0D9488] hover:bg-[#0a7a70] text-white px-4 py-2 rounded-xl text-sm font-semibold tr cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New project
+        </button>
+      </div>
+      <div id="projects-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- ── NOTES TAB ─────────────────────────────────────────────── -->
+    <div id="tab-notes" class="hidden p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-[#134E4A]">Notes</h2>
+          <p class="text-xs text-[#475569] mt-0.5">Quick thoughts & ideas</p>
+        </div>
+        <button onclick="addNote()" class="flex items-center gap-2 bg-[#0D9488] hover:bg-[#0a7a70] text-white px-4 py-2 rounded-xl text-sm font-semibold tr cursor-pointer">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New note
+        </button>
+      </div>
+      <div id="notes-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- ── PROFILE TAB ───────────────────────────────────────────── -->
+    <div id="tab-profile" class="hidden p-5 max-w-lg">
+      <h2 class="text-xl font-extrabold text-[#134E4A] mb-5">Profile</h2>
+      <div class="glass rounded-2xl p-6 space-y-5">
+        <!-- Avatar -->
+        <div class="flex items-center gap-4">
+          <div id="profile-avatar" class="w-16 h-16 rounded-2xl bg-[#0D9488] flex items-center justify-center text-white text-2xl font-bold">?</div>
+          <div>
+            <p id="profile-email" class="font-bold text-[#134E4A]">—</p>
+            <p class="text-xs text-[#475569]">Free plan · Member since <span id="profile-since">—</span></p>
+          </div>
+        </div>
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-3 pt-2">
+          <div class="bg-white/50 rounded-xl p-3 text-center">
+            <p id="profile-tasks" class="text-xl font-bold text-[#134E4A]">0</p>
+            <p class="text-xs text-[#475569]">Tasks</p>
+          </div>
+          <div class="bg-white/50 rounded-xl p-3 text-center">
+            <p id="profile-projects" class="text-xl font-bold text-[#134E4A]">0</p>
+            <p class="text-xs text-[#475569]">Projects</p>
+          </div>
+          <div class="bg-white/50 rounded-xl p-3 text-center">
+            <p id="profile-notes" class="text-xl font-bold text-[#134E4A]">0</p>
+            <p class="text-xs text-[#475569]">Notes</p>
+          </div>
+        </div>
+        <!-- Sign out -->
+        <button onclick="signOut()" class="w-full flex items-center justify-center gap-2 border-2 border-red-200 text-red-500 hover:bg-red-50 font-semibold py-2.5 rounded-xl tr cursor-pointer text-sm mt-2">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── PROJECT MODAL ────────────────────────────────────────────────── -->
+<div id="project-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(13,78,74,0.3);backdrop-filter:blur(6px)">
+  <div class="glass rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+    <h3 class="font-bold text-[#134E4A] mb-4">New project</h3>
+    <input id="project-name" type="text" placeholder="Project name…" onkeydown="if(event.key==='Enter')saveProject()"
+      class="w-full bg-white/70 border border-white/80 rounded-xl px-3 py-2.5 text-sm text-[#134E4A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 tr mb-3" />
+    <select id="project-color" class="w-full bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none cursor-pointer mb-4 tr">
+      <option value="#0D9488">Teal</option>
+      <option value="#3B82F6">Blue</option>
+      <option value="#F97316">Orange</option>
+      <option value="#8B5CF6">Purple</option>
+      <option value="#10B981">Green</option>
+      <option value="#EF4444">Red</option>
+    </select>
+    <div class="flex gap-3">
+      <button onclick="saveProject()" class="flex-1 bg-[#0D9488] hover:bg-[#0a7a70] text-white font-semibold py-2.5 rounded-xl tr cursor-pointer text-sm">Create</button>
+      <button onclick="closeProjectModal()" class="flex-1 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-white tr cursor-pointer text-sm">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ─────────────────────────────────────────────────────────── -->
+<div id="toast" class="fixed bottom-5 right-5 z-[60] hidden">
+  <div class="flex items-center gap-2 bg-[#0F172A] text-white text-sm px-4 py-3 rounded-xl shadow-xl">
+    <svg class="w-4 h-4 text-teal-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-msg"></span>
+  </div>
+</div>
+
+<script>
+// ── Supabase ─────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://supabasekong-d6mfu9m610dza7wo0j2dhg8r.coolify.assamadie.com',
+  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3ODA5ODkyMCwiZXhwIjo0OTMzNzcyNTIwLCJyb2xlIjoiYW5vbiJ9.uDWcW4l6DFY9JxJ9cD-MfpKEu_zSNg0EkmhIxnxmxi4'
+);
+
+// ── State (localStorage per user) ────────────────────────────────────
+let currentUser = null;
+let tasks = [], projects = [], notes = [];
+
+function storageKey(k) { return `fd_${currentUser.id}_${k}`; }
+function save(k, v)    { localStorage.setItem(storageKey(k), JSON.stringify(v)); }
+function load(k, def)  { try { return JSON.parse(localStorage.getItem(storageKey(k))) || def; } catch { return def; } }
+
+// ── Auth guard ────────────────────────────────────────────────────────
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (!session) { window.location.href = 'flowdesk-landing.html'; return; }
+  initDashboard(session.user);
+});
+sb.auth.onAuthStateChange((_e, session) => {
+  if (!session) window.location.href = 'flowdesk-landing.html';
+});
+
+async function signOut() {
+  await sb.auth.signOut();
+  window.location.href = 'flowdesk-landing.html';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+function initDashboard(user) {
+  currentUser = user;
+  const name = user.email.split('@')[0];
+
+  // Greeting
+  const h = new Date().getHours();
+  document.getElementById('greeting-time').textContent =
+    h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  document.getElementById('greeting-name').textContent = name;
+  document.getElementById('greeting-date').textContent =
+    new Date().toLocaleDateString('en', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('tab-sub').textContent =
+    new Date().toLocaleDateString('en', { weekday:'long', month:'long', day:'numeric' });
+
+  // Sidebar & topbar
+  ['sb-avatar','topbar-avatar','profile-avatar'].forEach(id => {
+    document.getElementById(id).textContent = name[0].toUpperCase();
+  });
+  document.getElementById('sb-name').textContent = user.email;
+  document.getElementById('profile-email').textContent = user.email;
+  document.getElementById('profile-since').textContent =
+    new Date(user.created_at).toLocaleDateString('en', { month:'short', year:'numeric' });
+
+  // Load data
+  tasks    = load('tasks', getDefaultTasks());
+  projects = load('projects', getDefaultProjects());
+  notes    = load('notes', getDefaultNotes());
+
+  renderAll();
+  renderActivityChart();
+}
+
+// ── Default data ──────────────────────────────────────────────────────
+function getDefaultTasks() {
+  return [
+    { id: uid(), text: 'Review Q2 roadmap', done: true,  priority: 'high',   created: Date.now() },
+    { id: uid(), text: 'Design system audit', done: false, priority: 'high',   created: Date.now() },
+    { id: uid(), text: 'Stakeholder sync — 3pm', done: false, priority: 'medium', created: Date.now() },
+    { id: uid(), text: 'Ship onboarding v2', done: false, priority: 'medium', created: Date.now() },
+    { id: uid(), text: 'Write release notes', done: false, priority: 'low',    created: Date.now() },
+  ];
+}
+function getDefaultProjects() {
+  return [
+    { id: uid(), name: 'FlowDesk App',   color: '#0D9488', progress: 65, created: Date.now() },
+    { id: uid(), name: 'Marketing Site', color: '#3B82F6', progress: 40, created: Date.now() },
+    { id: uid(), name: 'API v2',         color: '#F97316', progress: 20, created: Date.now() },
+  ];
+}
+function getDefaultNotes() {
+  return [
+    { id: uid(), text: 'Need to check Supabase SMTP config before shipping email flow.', created: Date.now() },
+    { id: uid(), text: 'Idea: add a Kanban view for tasks in v1.1.', created: Date.now() },
+  ];
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ── Render all ────────────────────────────────────────────────────────
+function renderAll() {
+  renderOverview();
+  renderTasksTab();
+  renderProjectsTab();
+  renderNotesTab();
+  renderProfileTab();
+}
+
+// ── Overview ──────────────────────────────────────────────────────────
+function renderOverview() {
+  const today  = tasks;
+  const done   = today.filter(t => t.done).length;
+  const total  = today.length;
+  const pct    = total ? Math.round(done / total * 100) : 0;
+
+  document.getElementById('ov-tasks-total').textContent = total;
+  document.getElementById('ov-tasks-done').textContent  = `${done} done`;
+  document.getElementById('ov-projects').textContent    = projects.length;
+  document.getElementById('ov-completion').textContent  = `${pct}%`;
+  document.getElementById('task-badge').textContent     = today.filter(t => !t.done).length;
+
+  // Ring
+  const circ = 251.2;
+  document.getElementById('ring-fill').style.strokeDashoffset = circ - (circ * pct / 100);
+  document.getElementById('ring-pct').textContent  = `${pct}%`;
+  document.getElementById('ring-done').textContent = done;
+  document.getElementById('ring-left').textContent = total - done;
+
+  // Today tasks (first 4)
+  const list = document.getElementById('ov-task-list');
+  const show = tasks.slice(0, 4);
+  list.innerHTML = show.length ? show.map(t => taskRow(t, true)).join('')
+    : '<p class="text-sm text-[#475569] text-center py-4">No tasks — add one below!</p>';
+
+  // Projects preview
+  const grid = document.getElementById('ov-projects-grid');
+  grid.innerHTML = projects.slice(0, 3).map(p => projectCard(p)).join('') ||
+    '<p class="text-sm text-[#475569]">No projects yet.</p>';
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────
+const priorityBadge = { high: 'bg-red-50 text-red-600', medium: 'bg-amber-50 text-amber-600', low: 'bg-slate-100 text-slate-500' };
+
+function taskRow(t, compact = false) {
+  return `<div class="flex items-center gap-3 bg-white/60 rounded-xl px-3 py-2.5 group tr hover:bg-white/90">
+    <input type="checkbox" class="task-check flex-shrink-0" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')" />
+    <span class="flex-1 text-sm ${t.done ? 'line-through text-[#94A3B8]' : 'text-[#134E4A]'}">${t.text}</span>
+    <span class="text-xs px-2 py-0.5 rounded-full font-medium ${priorityBadge[t.priority] || priorityBadge.medium} hidden sm:inline">${t.priority}</span>
+    ${!compact ? `<button onclick="deleteTask('${t.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 tr cursor-pointer flex-shrink-0" aria-label="Delete">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>` : ''}
+  </div>`;
+}
+
+function renderTasksTab() {
+  const filter = document.getElementById('task-filter')?.value || 'all';
+  const visible = tasks.filter(t =>
+    filter === 'all' ? true : filter === 'done' ? t.done : !t.done
+  );
+  const list = document.getElementById('tasks-list');
+  list.innerHTML = visible.length ? visible.map(t => taskRow(t)).join('')
+    : `<div class="glass rounded-2xl py-12 text-center text-sm text-[#475569]">No tasks here. Add one above!</div>`;
+}
+
+function addTask() {
+  const input = document.getElementById('task-input');
+  const priority = document.getElementById('task-priority').value;
+  const text = input.value.trim();
+  if (!text) return;
+  tasks.unshift({ id: uid(), text, done: false, priority, created: Date.now() });
+  save('tasks', tasks);
+  input.value = '';
+  renderAll();
+  showToast('Task added');
+}
+
+function quickAddTask() {
+  const input = document.getElementById('ov-task-input');
+  const text = input.value.trim();
+  if (!text) return;
+  tasks.unshift({ id: uid(), text, done: false, priority: 'medium', created: Date.now() });
+  save('tasks', tasks);
+  input.value = '';
+  renderAll();
+  showToast('Task added');
+}
+
+function toggleTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (t) { t.done = !t.done; save('tasks', tasks); renderAll(); }
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(x => x.id !== id);
+  save('tasks', tasks);
+  renderAll();
+  showToast('Task deleted');
+}
+
+// ── Projects ──────────────────────────────────────────────────────────
+function projectCard(p) {
+  return `<div class="glass rounded-2xl p-4 cursor-default hover:shadow-md tr">
+    <div class="flex items-center gap-2 mb-3">
+      <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${p.color}"></div>
+      <p class="font-semibold text-[#134E4A] text-sm truncate">${p.name}</p>
+      <button onclick="deleteProject('${p.id}')" class="ml-auto text-slate-300 hover:text-red-400 tr cursor-pointer" aria-label="Delete">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-1.5 mb-2">
+      <div class="h-1.5 rounded-full tr" style="width:${p.progress}%;background:${p.color}"></div>
+    </div>
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-[#475569]">${p.progress}% complete</p>
+      <div class="flex gap-1">
+        <button onclick="updateProgress('${p.id}',-10)" class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">−</button>
+        <button onclick="updateProgress('${p.id}',10)"  class="text-xs text-slate-400 hover:text-[#0D9488] tr cursor-pointer px-1">+</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderProjectsTab() {
+  const grid = document.getElementById('projects-grid');
+  grid.innerHTML = projects.length ? projects.map(p => projectCard(p)).join('')
+    : `<div class="col-span-3 glass rounded-2xl py-12 text-center text-sm text-[#475569]">No projects yet. Create your first one!</div>`;
+  document.getElementById('ov-projects').textContent = projects.length;
+  document.getElementById('profile-projects').textContent = projects.length;
+}
+
+function openProjectModal()  { document.getElementById('project-modal').classList.remove('hidden'); setTimeout(()=>document.getElementById('project-name').focus(),50); }
+function closeProjectModal() { document.getElementById('project-modal').classList.add('hidden'); }
+
+function saveProject() {
+  const name = document.getElementById('project-name').value.trim();
+  const color = document.getElementById('project-color').value;
+  if (!name) return;
+  projects.push({ id: uid(), name, color, progress: 0, created: Date.now() });
+  save('projects', projects);
+  document.getElementById('project-name').value = '';
+  closeProjectModal();
+  renderAll();
+  showToast('Project created');
+}
+
+function deleteProject(id) {
+  projects = projects.filter(x => x.id !== id);
+  save('projects', projects);
+  renderAll();
+  showToast('Project deleted');
+}
+
+function updateProgress(id, delta) {
+  const p = projects.find(x => x.id === id);
+  if (p) { p.progress = Math.max(0, Math.min(100, p.progress + delta)); save('projects', projects); renderAll(); }
+}
+
+document.getElementById('project-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('project-modal')) closeProjectModal();
+});
+
+// ── Notes ─────────────────────────────────────────────────────────────
+const noteColors = ['#FEF9C3','#DBEAFE','#D1FAE5','#FCE7F3','#E0E7FF'];
+
+function renderNotesTab() {
+  const grid = document.getElementById('notes-grid');
+  grid.innerHTML = notes.length ? notes.map((n, i) => `
+    <div class="rounded-2xl p-4 group cursor-default hover:shadow-md tr" style="background:${noteColors[i % noteColors.length]}">
+      <textarea onblur="updateNote('${n.id}', this.value)"
+        class="w-full bg-transparent text-sm text-[#134E4A] resize-none outline-none min-h-24 leading-relaxed">${n.text}</textarea>
+      <div class="flex items-center justify-between mt-2">
+        <span class="text-xs text-[#475569]">${new Date(n.created).toLocaleDateString('en', { month:'short', day:'numeric' })}</span>
+        <button onclick="deleteNote('${n.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 tr cursor-pointer" aria-label="Delete">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        </button>
+      </div>
+    </div>`).join('')
+  : `<div class="col-span-3 glass rounded-2xl py-12 text-center text-sm text-[#475569]">No notes yet. Create your first one!</div>`;
+  document.getElementById('profile-notes').textContent = notes.length;
+}
+
+function addNote() {
+  notes.unshift({ id: uid(), text: '', created: Date.now() });
+  save('notes', notes);
+  renderNotesTab();
+}
+function updateNote(id, text) {
+  const n = notes.find(x => x.id === id);
+  if (n) { n.text = text; save('notes', notes); }
+}
+function deleteNote(id) {
+  notes = notes.filter(x => x.id !== id);
+  save('notes', notes);
+  renderNotesTab();
+  showToast('Note deleted');
+}
+
+// ── Profile ───────────────────────────────────────────────────────────
+function renderProfileTab() {
+  document.getElementById('profile-tasks').textContent    = tasks.length;
+  document.getElementById('profile-projects').textContent = projects.length;
+  document.getElementById('profile-notes').textContent    = notes.length;
+}
+
+// ── Activity chart ────────────────────────────────────────────────────
+function renderActivityChart() {
+  const labels = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString('en', { weekday: 'short' }));
+  }
+  // Simulated data based on tasks
+  const done = tasks.filter(t => t.done).length;
+  const data = [1, 2, 1, 3, done, 2, done];
+  new Chart(document.getElementById('chart-activity'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: labels.map((_, i) => i === 6 ? '#0D9488' : '#CCFBF1'), borderRadius: 6, borderSkipped: false }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#F0FDFA' } }
+    }}
+  });
+}
+
+// ── Navigation ────────────────────────────────────────────────────────
+const tabMeta = {
+  overview: ['Overview', 'Your workspace at a glance'],
+  tasks:    ['Tasks',    'Manage your to-dos'],
+  projects: ['Projects', 'Track your ongoing work'],
+  notes:    ['Notes',    'Quick thoughts & ideas'],
+  profile:  ['Profile',  'Your account'],
+};
+function showTab(name) {
+  Object.keys(tabMeta).forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== name);
+  });
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().startsWith(name));
+  });
+  document.getElementById('tab-title').textContent = tabMeta[name][0];
+  document.getElementById('tab-sub').textContent   = tabMeta[name][1];
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+let _tt;
+function showToast(msg) {
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast').classList.remove('hidden');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => document.getElementById('toast').classList.add('hidden'), 2500);
+}
+</script>
+</body>
+</html>
